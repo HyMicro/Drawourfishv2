@@ -4,7 +4,8 @@ import path from 'node:path';
 
 const outDir = path.join(process.env.TEMP || '.', 'dyf-responsive');
 fs.mkdirSync(outDir, { recursive: true });
-const browser = await chromium.launch({ headless: false });
+const base = process.env.BASE_URL || 'http://localhost:8787';
+const browser = await chromium.launch({ headless: process.env.HEADLESS !== '0' });
 const errors = [];
 
 async function check(name, width, height, touch = false) {
@@ -19,7 +20,7 @@ async function check(name, width, height, touch = false) {
   page.on('console', (message) => {
     if (message.type() === 'error') errors.push(`${name}: ${message.text()}`);
   });
-  await page.goto('http://localhost:8787/', { waitUntil: 'networkidle' });
+  await page.goto(base, { waitUntil: 'networkidle' });
   await page.waitForSelector('.onboarding-card, .draw-fab', { timeout: 20000 });
   if (await page.locator('.onboarding-card').isVisible().catch(() => false)) {
     await page.getByRole('button', { name: 'Lihat dulu' }).click();

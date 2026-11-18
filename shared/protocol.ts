@@ -2,17 +2,16 @@
 // Imported by both `src/` and `server/`.
 
 export const FISH_TEMPLATE_IDS = [
-  'clownfish',
   'goldfish',
   'puffer',
+  'bubblefish',
+  'clownfish',
+  'tang',
   'shark',
-  'seahorse',
+  'babyfish',
+  'spotfish',
+  'grouper',
   'angelfish',
-  'manta',
-  'whale',
-  'squid',
-  'betta',
-  'koi',
   'free',
 ] as const;
 
@@ -28,10 +27,6 @@ export const EMOTES: Record<EmoteKind, string> = {
   BUBBLE: '🫧',
   MUSIC: '🎵',
 };
-
-export const SEA_ICONS = ['🦀', '⭐', '🐙', '🐚', '🐠', '🪼', '🐬', '🦑'] as const;
-
-export type RoomKind = 'public' | 'private';
 
 export interface FishTransform {
   /** Normalised 0..1 across the aquarium width. */
@@ -69,8 +64,6 @@ export interface FishSync {
 
 export interface RoomInfo {
   id: string;
-  code: string[];
-  kind: RoomKind;
   capacity: number;
   label: string;
 }
@@ -126,19 +119,6 @@ export interface ClientEmote {
   emote: EmoteKind;
 }
 
-export interface ClientCreatePrivate {
-  type: 'CREATE_PRIVATE';
-}
-
-export interface ClientJoinPrivate {
-  type: 'JOIN_PRIVATE';
-  code: string[];
-}
-
-export interface ClientLeavePrivate {
-  type: 'LEAVE_PRIVATE';
-}
-
 export interface ClientPing {
   type: 'PING';
 }
@@ -152,9 +132,6 @@ export type ClientMessage =
   | ClientFeedConsumed
   | ClientGlassTap
   | ClientEmote
-  | ClientCreatePrivate
-  | ClientJoinPrivate
-  | ClientLeavePrivate
   | ClientPing;
 
 export interface ServerWelcome {
@@ -212,12 +189,7 @@ export interface ServerEmote {
 
 export interface ServerError {
   type: 'ERROR';
-  code: 'ROOM_FULL' | 'ROOM_NOT_FOUND' | 'INVALID_CODE' | 'INVALID_PAYLOAD' | 'RATE_LIMIT' | 'UNKNOWN';
-  message: string;
-}
-
-export interface ServerRoomClosed {
-  type: 'ROOM_CLOSED';
+  code: 'OCEAN_FULL' | 'INVALID_PAYLOAD' | 'RATE_LIMIT' | 'UNKNOWN';
   message: string;
 }
 
@@ -236,7 +208,6 @@ export type ServerMessage =
   | ServerGlassTap
   | ServerEmote
   | ServerError
-  | ServerRoomClosed
   | ServerPong;
 
 export const ROOM_CAPACITY = 18;

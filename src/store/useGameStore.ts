@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { FishEntity, RoomInfo } from '../../shared/protocol';
+import type { FishEntity } from '../../shared/protocol';
 import { createBotFishes } from '../lib/bots';
 import { network, type ConnectionStatus } from '../net/client';
 import { sound } from '../lib/audio';
@@ -29,7 +29,6 @@ export interface EmoteTarget {
 interface UIState {
   studioOpen: boolean;
   collectionOpen: boolean;
-  roomOpen: boolean;
   photoOpen: boolean;
   emoteTarget: EmoteTarget | null;
   toasts: Toast[];
@@ -45,7 +44,6 @@ interface GameStore extends UIState {
   liveFishes: Record<string, FishEntity>;
   bots: FishEntity[];
   hiddenIds: string[];
-  room: RoomInfo | null;
   onlineCount: number;
   clientId: string | null;
   connection: ConnectionStatus;
@@ -56,7 +54,7 @@ interface GameStore extends UIState {
   deleteFish: (fishId: string) => void;
   setConnection: (status: ConnectionStatus) => void;
   goOffline: () => void;
-  applySnapshot: (room: RoomInfo, fishes: FishEntity[], clientId: string, onlineCount: number) => void;
+  applySnapshot: (fishes: FishEntity[], clientId: string, onlineCount: number) => void;
   applyRemoteSpawn: (fish: FishEntity) => void;
   applyRemoteDespawn: (fishId: string) => void;
   hideFish: (fishId: string) => void;
@@ -66,8 +64,6 @@ interface GameStore extends UIState {
   closeStudio: () => void;
   openCollection: () => void;
   closeCollection: () => void;
-  openRoom: () => void;
-  closeRoom: () => void;
   openPhoto: () => void;
   closePhoto: () => void;
   openEmoteMenu: (fish: FishEntity, x: number, y: number) => void;
@@ -131,13 +127,11 @@ export const useGameStore = create<GameStore>()((set, get) => ({
   liveFishes: {},
   bots: [],
   hiddenIds: [],
-  room: null,
   onlineCount: 0,
   clientId: null,
   connection: 'connecting',
   studioOpen: false,
   collectionOpen: false,
-  roomOpen: false,
   photoOpen: false,
   emoteTarget: null,
   toasts: [],
@@ -263,7 +257,6 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     if (state.connection === 'offline') return;
     set({
       connection: 'offline',
-      room: null,
       onlineCount: 0,
       clientId: null,
       liveFishes: liveForLocalReef(state.collection, state.activeIds, state.bots),
@@ -271,7 +264,7 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     });
   },
 
-  applySnapshot: (room, fishes, clientId, onlineCount) => {
+  applySnapshot: (fishes, clientId, onlineCount) => {
     const state = get();
     const ownFishes = state.collection.filter((fish) => state.activeIds.includes(fish.id));
     const remote: FishEntity[] = [];
@@ -289,7 +282,6 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     for (const fish of remote.slice(0, roomForRemote)) liveFishes[fish.id] = fish;
     if (realFishCount(liveFishes) < BOT_HIDE_AT) addQuietReefBots(liveFishes, state.bots);
     set({
-      room,
       clientId,
       onlineCount,
       connection: 'online',
@@ -297,7 +289,7 @@ export const useGameStore = create<GameStore>()((set, get) => ({
       bots: state.bots,
       hiddenIds: state.hiddenIds.filter((id) => Boolean(liveFishes[id])),
     });
-    // Re-introduce this player's active fish into the newly joined room.
+    // Re-introduce this player's active fish into the global ocean.
     for (const fish of ownFishes) network.spawnFish(fish);
   },
 
@@ -343,25 +335,19 @@ export const useGameStore = create<GameStore>()((set, get) => ({
   openStudio: () => {
     sound.unlock();
     sound.chime('bright');
-    set({ studioOpen: true, collectionOpen: false, roomOpen: false, emoteTarget: null });
+    set({ studioOpen: true, collectionOpen: false, emoteTarget: null });
   },
   closeStudio: () => set({ studioOpen: false }),
   openCollection: () => {
     sound.unlock();
     sound.chime('soft');
-    set({ collectionOpen: true, studioOpen: false, roomOpen: false, emoteTarget: null });
+    set({ collectionOpen: true, studioOpen: false, emoteTarget: null });
   },
   closeCollection: () => set({ collectionOpen: false }),
-  openRoom: () => {
-    sound.unlock();
-    sound.chime('soft');
-    set({ roomOpen: true, studioOpen: false, collectionOpen: false, emoteTarget: null });
-  },
-  closeRoom: () => set({ roomOpen: false }),
   openPhoto: () => {
     sound.unlock();
     sound.shutter();
-    set({ photoOpen: true, studioOpen: false, collectionOpen: false, roomOpen: false, emoteTarget: null });
+    set({ photoOpen: true, studioOpen: false, collectionOpen: false, emoteTarget: null });
   },
   closePhoto: () => set({ photoOpen: false }),
 

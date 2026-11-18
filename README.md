@@ -1,41 +1,38 @@
 # Draw Our Fish
 
-**Draw Your Fish (Online Edition)** — anak menggambar ikan sendiri, lalu melepaskannya ke akuarium online bersama. Nama produk/deploy: **Draw Our Fish**. UI baru bergaya Sanrio: pastel, sticker, sederhana.
+**Draw Our Fish** — anak menggambar ikan sendiri, lalu melepaskannya ke satu akuarium online global. Semua pemain berenang di lautan yang sama tanpa ruang privat, tanpa kode undangan, tanpa akun, dan tanpa chat teks.
 
-**Live online (Cloudflare Pages):**
-**https://drawourfish.pages.dev**
+**Live:** **https://drawourfish.pages.dev**
 
-Frontend disajikan dari Cloudflare Pages; backend WebSocket berjalan di Cloudflare Worker + Durable Object. URL publik bebas nama akun. Tidak perlu akun anak, tidak ada chat teks, tidak ada data pribadi.
+Frontend disajikan dari Cloudflare Pages; backend WebSocket berjalan di Cloudflare Worker + Durable Object. URL publik bebas nama akun. Nama ikan tampil di atas setiap ikan di akuarium.
 
 ---
 
 ## Fitur
 
-### Studio gambar baru
-- **12 pilihan**: 11 stiker ikan + **Gambar Bebas**.
-- Stiker baru terinspirasi referensi: **Squid**, **Betta**, **Koi**; plus Clownfish, Goldfish, Pufferfish, Baby Shark, Seahorse, Angelfish, Manta Ray, Whale.
-- **Gambar Bebas**: kanvas kosong dengan panduan putus-putus. Coretan anak otomatis jadi stiker dengan pinggiran putih + garis cokelat lembut.
+### Studio gambar
+- **10 stiker ikan** dari template raster yang disediakan: Goldfish, Pufferfish, Bubblefish, Clownfish, Blue Tang, Baby Shark, Baby Fish, Spotfish, Grouper, Angelfish — plus **Gambar Bebas**.
+- Template memakai tiga lapisan: siluet putih, detail garis/rim, dan hasil warna. Ember cat otomatis mengikuti bentuk tubuh ikan.
 - **4 gaya kuas**: Spidol, Pensil, Krayon, Semprot/airbrush.
-- **Slider ukuran kuas** 6–64 px.
-- **Slider Hue** (semua warna) + 8 swatch cepat.
-- Ember cat dengan auto-clipping siluet (template) atau deteksi area tertutup (mode bebas).
-- Penghapus, undo 15 langkah, reset.
+- **Warna lengkap**: slider Hue, Saturasi, dan Kecerahan + **24 swatch** + kode HEX dan nilai **RGB**.
+- **4 mode blend**: Normal, Multiply, Screen, Overlay.
+- Ember cat, penghapus, undo 15 langkah, reset, ukuran kuas 6–64 px.
 - Nama acak lucu + dadu; ekspor WebP 384×384 (maks 80 KB).
-- Setiap ikan mendapat **sticker rim putih** seperti referensi, termasuk shading, outline, dan mata googly.
+- Setiap ikan mendapat pinggiran putih dan outline cokelat navy seperti stiker.
 
-### Akuarium & sosial
-- Mesh strip 16 segmen dengan gerak sinus organik; kepala stabil, badan tidak pernah berputar vertikal.
-- Squid bergerak melayang (sprite), ikan lain berenang dengan mesh.
-- Pakan bersama, riak ketuk kaca, ikan penasaran 3 detik, emote (❤️ ✨ 🫧 🎵), dan long-press untuk menyembunyikan ikan.
-- Ruang publik otomatis (18 ikan/shards) dan **ruang privat 4 ikon**.
-- **Link undangan ruang**: tombol “Salin Link” membuat URL `/?room=0123` yang otomatis memasukkan keluarga ke ruang yang sama.
+### Akuarium global
+- **Satu Ocean Global**: pemain otomatis masuk shard publik yang sama; tidak ada pembuatan/join ruang.
+- **Nama di atas ikan** dalam label krem yang mengikuti gerakan ikan.
+- Background laut dari gambar referensi yang sudah dibersihkan dari ikan, dengan sinar, gelembung, dan partikel halus.
+- **Siluet ikan parallax** diekstrak sebagai aset transparan terpisah; bergerak pelan kiri/kanan dengan kedalaman berbeda.
+- Mesh 16 segmen untuk gerak berenang organik; mode bebas memakai sprite melayang.
+- Pakan bersama, riak ketuk kaca, emote (❤️ ✨ 🫧 🎵), dan long-press untuk menyembunyikan ikan.
 - Sync 10 Hz + interpolasi; feed/tap/emote realtime.
-- Local Reef otomatis saat offline, dengan 4 ikan AI.
-- Dua ikan AI penghuni tampil saat ruangan sepi.
+- Local Reef otomatis saat offline, dengan ikan AI.
 
 ### Koleksi, foto, PWA
 - Koleksi lokal IndexedDB (maks 30), maksimal 3 ikan aktif.
-- Photo Booth: kartu pos 1080×1350 diunduh sebagai PNG.
+- Photo Booth: kartu pos 1080×1350 bernuansa krem/oranye, diunduh sebagai PNG.
 - PWA installable; service worker menyimpan HTML, JS/CSS ber-hash, font, dan ikon untuk cold offline reload.
 - Audio disintesis Web Audio (tanpa file audio): kuas, chime, splash, munch, kamera, BGM.
 
@@ -46,8 +43,8 @@ Frontend disajikan dari Cloudflare Pages; backend WebSocket berjalan di Cloudfla
 | Lapisan | Teknologi |
 | --- | --- |
 | UI | React 19 + TypeScript + Vite 6 |
-| Desain | Tailwind v4 (reset) + design system Sanrio custom |
-| Grafik | PixiJS v8 WebGL (mesh 16 segmen, partikel, screenshot) |
+| Desain | Tailwind v4 (reset) + design system buku laut krem/oranye/toska |
+| Grafik | PixiJS v8 WebGL (mesh 16 segmen, parallax, partikel, screenshot) |
 | State | Zustand |
 | Persistence | IndexedDB (`idb-keyval`) + localStorage |
 | Online | **Cloudflare Pages (frontend) + Workers + Durable Objects (WebSocket)** |
@@ -93,7 +90,7 @@ npm run deploy:pages
 `wrangler.toml` berisi Worker `draw-our-fish`, Durable Object `ReefRoom`, static assets, dan `ALLOWED_ORIGINS` untuk Pages. Frontend Pages memakai `.env.pages` untuk WebSocket cross-origin dan `public/_headers` untuk CSP/security headers.
 
 Live publik: **https://drawourfish.pages.dev**  
-Backend Worker dipakai lewat WebSocket internal; URL frontend yang dibagikan tetap bersih. URL Worker lama otomatis **302 redirect** ke domain Pages ini, jadi alamat dengan nama akun tidak lagi menjadi alamat aplikasi.
+Backend Worker dipakai lewat WebSocket internal; URL frontend yang dibagikan tetap bersih. URL Worker lama otomatis **302 redirect** ke domain Pages ini.
 
 ---
 
@@ -103,21 +100,25 @@ Backend Worker dipakai lewat WebSocket internal; URL frontend yang dibagikan tet
 .
 ├─ worker/
 │  ├─ index.ts             # Worker entry: /ws, /api/health, static assets
-│  └─ room.ts              # Durable Object: matchmaking, room, sinkronisasi
+│  └─ room.ts              # Durable Object: shard global, sinkronisasi
 ├─ shared/protocol.ts      # tipe & konstanta client/server
 ├─ server/                 # backend Node opsional (Docker/Render/local)
 ├─ src/
-│  ├─ aquarium/engine.ts   # PixiJS: background pastel, mesh, pakan, riak, emote
-│  ├─ components/          # HUD, Studio, Room, Collection, Photo, Emote
-│  ├─ data/templates.ts    # 12 template + palet
-│  ├─ lib/fishArt.ts       # 4 layer, sticker rim, free-draw export
+│  ├─ aquarium/engine.ts   # PixiJS: background, parallax, mesh, label, pakan
+│  ├─ components/          # HUD, Studio, Collection, Photo, Emote
+│  ├─ data/templates.ts    # 10 template + palet 24 warna
+│  ├─ lib/fishArt.ts       # raster template, mask, sticker rim, export
 │  ├─ lib/audio.ts
 │  ├─ net/client.ts
 │  ├─ store/useGameStore.ts
-│  └─ index.css            # tema Sanrio responsif
+│  └─ index.css            # tema krem/oranye responsif
+├─ public/
+│  ├─ fish/                # shape, details, thumb, texture per ikan
+│  ├─ silhouettes/         # siluet parallax transparan
+│  └─ underwater-bg.png    # background laut bersih 1920×1080
 ├─ wrangler.toml
 ├─ Dockerfile
-└─ scripts/                # QA Playwright + protocol test
+└─ scripts/                # QA Playwright + protocol test + asset pipeline
 ```
 
 ---
@@ -127,7 +128,7 @@ Backend Worker dipakai lewat WebSocket internal; URL frontend yang dibagikan tet
 - Tanpa akun/chat/email; `ownerId` anonim lokal.
 - Nama ikan disanitasi server (maks 22 karakter).
 - WebP square, 96–768 px, ≤80 KB, header divalidasi.
-- Maks 18 ikan/ruangan, 14 koneksi/ruangan, 3 ikan/pemain.
+- Maks 18 ikan/shard, 14 koneksi/shard, 3 ikan/pemain.
 - Rate limit pesan; payload WebSocket maks 150 KB.
 - Emote dibatasi 4 pilihan.
 - Nama ikan dibatasi huruf/angka/spasi/strip; karakter lain dibuang.
@@ -135,42 +136,50 @@ Backend Worker dipakai lewat WebSocket internal; URL frontend yang dibagikan tet
 - Cloudflare Worker & Pages mengirim CSP, HSTS, nosniff, Permissions-Policy, Referrer-Policy, dan frame protection.
 - CSP tanpa `unsafe-eval`; Pixi memakai polyfill `pixi.js/unsafe-eval` yang mengganti shader/uniform sync dengan implementasi tanpa-eval.
 - `_headers` di Pages membatasi `connect-src` ke Worker WebSocket yang tepat; perbarui bila URL backend berubah.
-- Cloudflare Durable Object menyimpan ruangan selama ada koneksi; data ikan hanya di memori ruangan (bukan storage permanen).
+- Cloudflare Durable Object menyimpan shard selama ada koneksi; data ikan hanya di memori (bukan storage permanen).
 
 ---
 
-## QA yang sudah dijalankan
+## QA
 
 ```bash
-npm run test:protocol      # worker online: spawn/sync/feed/tap/emote/private room
-npm run test:multiplayer   # dua browser, ruang privat, ikan lintas pemain
+npm run test:protocol      # spawn/sync/feed/tap/emote/validasi
+npm run test:multiplayer   # dua browser, satu ocean global, ikan lintas pemain
 npm run test:offline       # persistence, PWA cold offline, download foto
 npm run test:interaction   # tap emote & long-press hide
 npm run test:responsive    # iPad, ponsel kecil, landscape
 npm run test:perf          # 18 ikan, FPS
 npm run test:smoke         # screenshot alur utama
-npm run test:invite        # link undangan ?room= otomatis join
 npm run test:origin        # origin WebSocket ditolak/diizinkan
 ```
 
-Hasil terakhir:
-- 18 ikan aktif = **60 FPS** di Chromium desktop.
-- Flood fill **±1–10 ms** di desktop.
-- Bundle inti **±271 KB gzip** (JS) + 11 KB CSS.
-- Free-draw + 3 template baru + brush style diuji; tidak ada error konsol.
-- Deployment Cloudflare Pages + Worker & protokol WebSocket online lolos uji.
-- Link undangan ruang `/?room=0123` otomatis join di `drawourfish.pages.dev`.
-- Origin WebSocket asing ditolak `403`, origin Pages/Worker diterima.
-- Smoke test desktop & mobile di domain Pages: 0 error konsol.
+Aset dapat dibangun ulang:
+
+```bash
+node scripts/build-fish-assets.mjs        # public/fish/*
+node scripts/build-background-assets.mjs  # background + siluet
+node scripts/make-icons.mjs               # ikon PWA
+```
+
+Hasil uji terakhir:
+- 18 ikan aktif = **60 FPS** di Chromium desktop dengan GPU.
+- Aset WebP: background **±92 KB**, satu set 10 ikan **±0,9 MB** (shape/details/thumb/texture).
+- Smoke desktop + mobile di `drawourfish.pages.dev`: **0 error konsol**.
+- Multiplayer dua browser: keduanya melihat **Ocean Global** dan jumlah ikan yang sama, tanpa ruang/kode.
+- Protokol live: spawn, sync, feed, tap, emote, dan validasi payload lolos.
+- Origin asing ditolak **403**, origin Worker/Pages diterima.
 
 ---
 
 ## Catatan implementasi
 
-- **Mesh kustom**: PRD menyebut `MeshRope`, tetapi `MeshRope` memaksa lebar geometri = tinggi tekstur persegi sehingga sirip/ekor rusak. Implementasi memakai mesh strip 16 segmen PixiJS `Mesh` dengan gerak sinus dan faktor kepala `(i/N)^1.6`; hasil visual bersih.
-- **Sticker rim**: pinggiran putih 38 px pada ruang desain 1024, lalu crop dengan padding. Mode bebas membangun halo dari alpha coretan.
+- **Mesh kustom**: `MeshRope` memaksa lebar geometri = tinggi tekstur persegi sehingga sirip/ekor rusak. Implementasi memakai mesh strip 16 segmen PixiJS `Mesh` dengan gerak sinus dan faktor kepala `(i/N)^1.6`.
+- **Template raster**: `*-shape.webp` (siluet putih) dipakai sebagai mask ember cat; `*-details.webp` menyimpan rim, outline, mata, dan detail; `*-texture.webp` dipakai ikan AI.
+- **Sticker rim**: band putih 6 px mengikuti alpha shape, dihitung dari tepi transparan, sehingga outline tetap rapi walau ada celah antialias.
+- **Blend kuas**: tiap goresan digambar ke layer sementara, lalu dikomposit sekali ke kanvas cat saat pointer dilepas; ini mencegah artefak kotak saat memakai Multiply/Screen/Overlay.
 - **Free-draw fill**: ember hanya mengisi area tertutup; jika tumpahan menyentuh tepi kanvas, operasi dibatalkan.
-- **Sanrio UI**: dibuat manual dengan vektor/CSS, tanpa gambar hasil AI generatif.
+- **Parallax**: siluet diekstrak dari referensi, dinormalisasi ke navy, dan dianimasikan dengan kecepatan/alpha berbeda; background tetap diam tanpa camera movement.
+- **UI**: dibuat manual dengan CSS/vektor, tanpa gambar UI hasil AI generatif.
 
 ---
 

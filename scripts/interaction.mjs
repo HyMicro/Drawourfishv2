@@ -5,14 +5,14 @@ import { PNG } from 'pngjs';
 
 const outDir = path.join(process.env.TEMP || '.', 'dyf-interact');
 fs.mkdirSync(outDir, { recursive: true });
-const browser = await chromium.launch({ headless: false });
+const browser = await chromium.launch({ headless: process.env.HEADLESS !== '0' });
 const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
 const errors = [];
 page.on('pageerror', (error) => errors.push(error.message));
 page.on('console', (message) => {
   if (message.type() === 'error') errors.push(message.text());
 });
-await page.goto('http://localhost:8787/', { waitUntil: 'networkidle' });
+await page.goto(process.env.BASE_URL || 'http://localhost:8787/', { waitUntil: 'networkidle' });
 await page.waitForSelector('.onboarding-card, .draw-fab');
 if (await page.locator('.onboarding-card').isVisible().catch(() => false)) {
   await page.getByRole('button', { name: 'Lihat dulu' }).click();

@@ -6,24 +6,16 @@ import { Icon } from './Icon';
 export function Hud() {
   const openStudio = useGameStore((state) => state.openStudio);
   const openCollection = useGameStore((state) => state.openCollection);
-  const openRoom = useGameStore((state) => state.openRoom);
   const openPhoto = useGameStore((state) => state.openPhoto);
   const addToast = useGameStore((state) => state.addToast);
   const toggleMute = useGameStore((state) => state.toggleMute);
   const muted = useGameStore((state) => state.muted);
   const connection = useGameStore((state) => state.connection);
-  const room = useGameStore((state) => state.room);
   const liveFishes = useGameStore((state) => state.liveFishes);
   const activeIds = useGameStore((state) => state.activeIds);
 
   const fishCount = Object.keys(liveFishes).length;
-  const roomLabel = room
-    ? room.kind === 'private'
-      ? room.code.join(' ')
-      : 'Ocean'
-    : connection === 'offline'
-      ? 'Local Reef'
-      : 'Menyambung…';
+  const statusLabel = connection === 'offline' ? 'Local Reef' : 'Ocean Global';
 
   const feed = () => {
     const engine = getEngine();
@@ -49,22 +41,14 @@ export function Hud() {
         </div>
 
         <div className="top-actions">
-          <button type="button" className="room-pill" onClick={openRoom} aria-label="Buka ruang bersama">
+          <div className="ocean-pill" aria-label={statusLabel}>
             <span className={`status-dot ${connection}`} aria-hidden="true" />
-            <span className="room-label">{roomLabel}</span>
+            <span className="ocean-label">{statusLabel}</span>
             <span className="fish-count">
               <Icon name="fish" size={13} />
               {fishCount}
             </span>
-          </button>
-          <button
-            type="button"
-            className="round-btn sound-btn"
-            onClick={toggleMute}
-            aria-label={muted ? 'Nyalakan suara' : 'Matikan suara'}
-          >
-            <Icon name={muted ? 'volume-off' : 'volume'} size={21} />
-          </button>
+          </div>
         </div>
       </header>
 
@@ -97,12 +81,16 @@ export function Hud() {
             </span>
             <span>Foto</span>
           </button>
-          <button type="button" className="dock-item" onClick={openRoom}>
+          <button
+            type="button"
+            className="dock-item"
+            onClick={toggleMute}
+            aria-label={muted ? 'Nyalakan suara' : 'Matikan suara'}
+          >
             <span className="dock-icon">
-              <Icon name="users" size={23} />
-              {connection === 'offline' && <span className="tiny-badge">!</span>}
+              <Icon name={muted ? 'volume-off' : 'volume'} size={23} />
             </span>
-            <span>Ruang</span>
+            <span>Suara</span>
           </button>
         </div>
       </nav>

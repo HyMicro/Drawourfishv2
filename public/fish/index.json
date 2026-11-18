@@ -1,0 +1,132 @@
+[
+  {
+    "id": "goldfish",
+    "label": "Goldfish",
+    "accent": "#F2A35C",
+    "width": 640,
+    "height": 640,
+    "bytes": {
+      "shape": 7298,
+      "details": 68444,
+      "thumb": 17522,
+      "texture": 28260
+    }
+  },
+  {
+    "id": "puffer",
+    "label": "Pufferfish",
+    "accent": "#F4C95D",
+    "width": 640,
+    "height": 640,
+    "bytes": {
+      "shape": 5578,
+      "details": 59676,
+      "thumb": 16274,
+      "texture": 26674
+    }
+  },
+  {
+    "id": "bubblefish",
+    "label": "Bubblefish",
+    "accent": "#7FCBD8",
+    "width": 640,
+    "height": 640,
+    "bytes": {
+      "shape": 5134,
+      "details": 56856,
+      "thumb": 13084,
+      "texture": 20418
+    }
+  },
+  {
+    "id": "clownfish",
+    "label": "Clownfish",
+    "accent": "#EE7D54",
+    "width": 640,
+    "height": 640,
+    "bytes": {
+      "shape": 4432,
+      "details": 52674,
+      "thumb": 14108,
+      "texture": 23512
+    }
+  },
+  {
+    "id": "tang",
+    "label": "Blue Tang",
+    "accent": "#72A7E8",
+    "width": 640,
+    "height": 640,
+    "bytes": {
+      "shape": 5068,
+      "details": 43544,
+      "thumb": 11332,
+      "texture": 18156
+    }
+  },
+  {
+    "id": "shark",
+    "label": "Baby Shark",
+    "accent": "#89AFCB",
+    "width": 640,
+    "height": 640,
+    "bytes": {
+      "shape": 4880,
+      "details": 43342,
+      "thumb": 11748,
+      "texture": 19384
+    }
+  },
+  {
+    "id": "babyfish",
+    "label": "Baby Fish",
+    "accent": "#F3B59E",
+    "width": 640,
+    "height": 640,
+    "bytes": {
+      "shape": 5446,
+      "details": 48926,
+      "thumb": 12478,
+      "texture": 18526
+    }
+  },
+  {
+    "id": "spotfish",
+    "label": "Spotfish",
+    "accent": "#A5C97A",
+    "width": 640,
+    "height": 640,
+    "bytes": {
+      "shape": 4232,
+      "details": 49152,
+      "thumb": 12114,
+      "texture": 19696
+    }
+  },
+  {
+    "id": "grouper",
+    "label": "Grouper",
+    "accent": "#8DC7A3",
+    "width": 640,
+    "height": 640,
+    "bytes": {
+      "shape": 5254,
+      "details": 58228,
+      "thumb": 15524,
+      "texture": 24802
+    }
+  },
+  {
+    "id": "angelfish",
+    "label": "Angelfish",
+    "accent": "#A9B9F0",
+    "width": 640,
+    "height": 640,
+    "bytes": {
+      "shape": 8662,
+      "details": 76784,
+      "thumb": 18076,
+      "texture": 29498
+    }
+  }
+]

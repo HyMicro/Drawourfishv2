@@ -1,7 +1,7 @@
 {
   "name": "draw-our-fish",
   "private": true,
-  "version": "2.1.0",
+  "version": "2.2.0",
   "type": "module",
   "description": "Draw Your Fish — a safe, real-time shared aquarium for kids.",
   "scripts": {
@@ -24,7 +24,6 @@
     "test:perf": "node scripts/perf.mjs",
     "test:interaction": "node scripts/interaction.mjs",
     "test:responsive": "node scripts/responsive.mjs",
-    "test:invite": "node scripts/invite.mjs",
     "test:origin": "node scripts/origin-check.mjs"
   },
   "dependencies": {
@@ -51,6 +50,7 @@
     "esbuild": "^0.24.2",
     "playwright": "^1.65.1",
     "pngjs": "^7.0.0",
+    "sharp": "^0.35.5",
     "tailwindcss": "^4.0.0",
     "tsx": "^4.19.2",
     "typescript": "~5.7.2",

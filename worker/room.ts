@@ -5,7 +5,6 @@ import {
   MAX_FISH_PER_OWNER,
   MAX_TEXTURE_BYTES,
   ROOM_CAPACITY,
-  SEA_ICONS,
   type ClientMessage,
   type EmoteKind,
   type FishEntity,
@@ -124,7 +123,6 @@ function validateTexture(dataUrl: unknown): string | null {
 export class ReefRoom {
   private rooms = new Map<string, Room>();
   private clients = new Set<Client>();
-  private codeIndex = new Map<string, string>();
   private shardCounter = 0;
 
   constructor(_state: DurableObjectState, _env: unknown) {}
@@ -182,45 +180,13 @@ export class ReefRoom {
     });
   }
 
-  private randomRoomCode(): string[] {
-    const code: string[] = [];
-    for (let i = 0; i < 4; i++) code.push(SEA_ICONS[Math.floor(Math.random() * SEA_ICONS.length)]);
-    return code;
-  }
-
-  private makePrivateRoom(): Room {
-    let code = this.randomRoomCode();
-    let key = code.join('');
-    while (this.codeIndex.has(key)) {
-      code = this.randomRoomCode();
-      key = code.join('');
-    }
-    const room: Room = {
-      info: {
-        id: `private-${crypto.randomUUID().slice(0, 8)}`,
-        code,
-        kind: 'private',
-        capacity: ROOM_CAPACITY,
-        label: 'Ruang Keluarga',
-      },
-      clients: new Set(),
-      fishes: new Map(),
-      syncs: new Map(),
-    };
-    this.rooms.set(room.info.id, room);
-    this.codeIndex.set(key, room.info.id);
-    return room;
-  }
-
   private makePublicRoom(): Room {
     this.shardCounter += 1;
     const room: Room = {
       info: {
         id: `ocean-${this.shardCounter}-${crypto.randomUUID().slice(0, 4)}`,
-        code: ['🌊', '🐠', '🫧', '☀️'],
-        kind: 'public',
         capacity: ROOM_CAPACITY,
-        label: 'Ocean Publik',
+        label: 'Ocean Global',
       },
       clients: new Set(),
       fishes: new Map(),
@@ -233,7 +199,6 @@ export class ReefRoom {
   private findPublicRoom(): Room {
     let best: Room | null = null;
     for (const room of this.rooms.values()) {
-      if (room.info.kind !== 'public') continue;
       if (room.clients.size >= MAX_CLIENTS_PER_ROOM) continue;
       if (room.fishes.size >= ROOM_CAPACITY) continue;
       if (!best || room.fishes.size < best.fishes.size) best = room;
@@ -253,11 +218,7 @@ export class ReefRoom {
     }
     room.clients.delete(client);
     client.room = null;
-    if (room.info.kind === 'private' && room.clients.size === 0) {
-      this.rooms.delete(room.info.id);
-      this.codeIndex.delete(room.info.code.join(''));
-    }
-    if (room.info.kind === 'public' && room.clients.size === 0 && this.rooms.size > 1) {
+    if (room.clients.size === 0 && this.rooms.size > 1) {
       this.rooms.delete(room.info.id);
     }
   }
@@ -318,7 +279,7 @@ export class ReefRoom {
     const existing = typeof fishId === 'string' ? room.fishes.get(fishId) : undefined;
     if (existing && existing.ownerId !== client.ownerId) return;
     if (!existing && room.fishes.size >= ROOM_CAPACITY) {
-      send(client, { type: 'ERROR', code: 'ROOM_FULL', message: 'Akuarium penuh, ikanmu berenang lokal dulu.' });
+      send(client, { type: 'ERROR', code: 'OCEAN_FULL', message: 'Akuarium penuh, ikanmu berenang lokal dulu.' });
       return;
     }
     const ownCount = [...room.fishes.values()].filter((fish) => fish.ownerId === client.ownerId).length;
@@ -429,36 +390,6 @@ export class ReefRoom {
         if (!client.room || !EMOTES.has(message.emote) || typeof message.targetFishId !== 'string') return;
         sendRoom(client.room, { type: 'EMOTE_EVENT', targetFishId: message.targetFishId, emote: message.emote }, client);
         break;
-      case 'CREATE_PRIVATE': {
-        this.leaveRoom(client);
-        this.enterRoom(client, this.makePrivateRoom());
-        break;
-      }
-      case 'JOIN_PRIVATE': {
-        if (!Array.isArray(message.code) || message.code.length !== 4) {
-          send(client, { type: 'ERROR', code: 'INVALID_CODE', message: 'Kode ruang harus 4 ikon.' });
-          return;
-        }
-        const roomId = this.codeIndex.get(message.code.join(''));
-        const room = roomId ? this.rooms.get(roomId) : undefined;
-        if (!room) {
-          send(client, { type: 'ERROR', code: 'ROOM_NOT_FOUND', message: 'Ruang tidak ditemukan.' });
-          return;
-        }
-        if (room.clients.size >= MAX_CLIENTS_PER_ROOM) {
-          send(client, { type: 'ERROR', code: 'ROOM_FULL', message: 'Ruang ini sedang penuh.' });
-          return;
-        }
-        this.leaveRoom(client);
-        this.enterRoom(client, room);
-        break;
-      }
-      case 'LEAVE_PRIVATE': {
-        if (!client.room) return;
-        this.leaveRoom(client);
-        this.enterRoom(client, this.findPublicRoom());
-        break;
-      }
       case 'PING':
         send(client, { type: 'PONG' });
         break;

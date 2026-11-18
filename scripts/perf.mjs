@@ -6,14 +6,14 @@ import path from 'node:path';
 const textureData =
   'data:image/webp;base64,' +
   fs.readFileSync(path.resolve('scripts/fixtures/fish.webp')).toString('base64');
-const browser = await chromium.launch({ headless: false });
+const browser = await chromium.launch({ headless: process.env.HEADLESS !== '0', args: ['--enable-webgl', '--ignore-gpu-blocklist'] });
 const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
 const errors = [];
 page.on('pageerror', (error) => errors.push(error.message));
 page.on('console', (message) => {
   if (message.type() === 'error') errors.push(message.text());
 });
-await page.goto('http://localhost:8787/', { waitUntil: 'networkidle' });
+await page.goto(process.env.BASE_URL || 'http://localhost:8787/', { waitUntil: 'networkidle' });
 await page.waitForSelector('.onboarding-card, .draw-fab');
 if (await page.locator('.onboarding-card').isVisible().catch(() => false)) {
   await page.getByRole('button', { name: 'Lihat dulu' }).click();
@@ -22,7 +22,7 @@ await page.waitForSelector('.draw-fab');
 await page.waitForTimeout(500);
 
 const clients = [];
-const templates = ['clownfish', 'goldfish', 'puffer', 'shark', 'seahorse', 'angelfish', 'manta', 'whale', 'squid', 'betta', 'koi'];
+const templates = ['clownfish', 'goldfish', 'puffer', 'shark', 'angelfish', 'tang', 'spotfish', 'grouper', 'bubblefish', 'babyfish'];
 
 for (let c = 0; c < 6; c++) {
   const ws = new WebSocket('ws://localhost:8787/ws');

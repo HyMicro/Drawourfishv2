@@ -99,14 +99,6 @@ A.send({
 const bad = await A.next((message) => message.type === 'ERROR');
 console.log('VALIDATION_ERROR', bad.code);
 
-A.send({ type: 'CREATE_PRIVATE' });
-const privateA = await A.next((message) => message.type === 'ROOM_SNAPSHOT');
-console.log('PRIVATE_ROOM', privateA.room.kind, privateA.room.code.join(''));
-const code = privateA.room.code;
-B.send({ type: 'JOIN_PRIVATE', code });
-const privateB = await B.next((message) => message.type === 'ROOM_SNAPSHOT');
-console.log('PRIVATE_JOIN', privateB.room.id === privateA.room.id, privateB.room.code.join(''));
-
 const invalidSize = 'data:image/webp;base64,' + Buffer.alloc(90 * 1024, 1).toString('base64');
 A.send({
   type: 'FISH_SPAWN',

@@ -177,18 +177,6 @@ class NetworkClient {
     this.send({ type: 'EMOTE_SEND', targetFishId, emote });
   }
 
-  createPrivateRoom() {
-    this.send({ type: 'CREATE_PRIVATE' });
-  }
-
-  joinPrivateRoom(code: string[]) {
-    this.send({ type: 'JOIN_PRIVATE', code });
-  }
-
-  leavePrivateRoom() {
-    this.send({ type: 'LEAVE_PRIVATE' });
-  }
-
   disconnect() {
     this.intentionalClose = true;
     this.clearReconnect();

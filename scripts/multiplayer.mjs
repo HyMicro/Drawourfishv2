@@ -6,7 +6,7 @@ const outDir = path.join(process.env.TEMP || '.', 'dyf-multi');
 fs.mkdirSync(outDir, { recursive: true });
 const base = process.env.BASE_URL || 'http://localhost:8787';
 
-const browser = await chromium.launch({ headless: false });
+const browser = await chromium.launch({ headless: process.env.HEADLESS !== '0' });
 const contextA = await browser.newContext({ viewport: { width: 1280, height: 800 } });
 const contextB = await browser.newContext({ viewport: { width: 1100, height: 760 } });
 const pageA = await contextA.newPage();
@@ -32,61 +32,45 @@ async function enter(page) {
 await enter(pageA);
 await enter(pageB);
 
-// Draw and release a fish on A.
+// A draws and releases a fish into the global ocean.
 await pageA.locator('.draw-fab').click();
 await pageA.waitForSelector('.studio-panel');
 const box = await pageA.locator('.drawing-canvas').boundingBox();
-await pageA.locator('.swatch').nth(3).click();
+await pageA.locator('.swatch').nth(0).click();
 await pageA.locator('.tool-chip').filter({ hasText: 'Ember' }).click();
-await pageA.locator('.swatch').nth(5).click();
+await pageA.locator('.swatch').nth(4).click();
 await pageA.mouse.click(box.x + box.width * 0.55, box.y + box.height * 0.55);
 await pageA.waitForTimeout(350);
-await pageA.locator('.name-pill input').fill('Coral Multi');
+await pageA.locator('.name-pill input').fill('Global Gupi');
 await pageA.locator('.finish-top').click();
 await pageA.waitForSelector('.studio-panel', { state: 'detached' });
-await pageA.waitForTimeout(1400);
+await pageA.waitForTimeout(1600);
 
-// A creates a private room.
-await pageA.locator('.dock-item').filter({ hasText: 'Ruang' }).click();
-await pageA.waitForSelector('.room-panel');
-await pageA.getByRole('button', { name: /Buat Ruang Bersama/ }).click();
-await pageA.waitForSelector('.room-code-tile', { timeout: 10000 });
-await pageA.waitForTimeout(700);
-const code = await pageA.locator('.room-code-tile').allTextContents();
-console.log('ROOM_CODE', code);
-await pageA.screenshot({ path: path.join(outDir, '01-room-a.png') });
-
-// B joins using the four icons.
-await pageB.locator('.dock-item').filter({ hasText: 'Ruang' }).click();
-await pageB.waitForSelector('.room-panel');
-for (const icon of code) {
-  await pageB.locator('.icon-pick').filter({ hasText: icon.trim() }).first().click();
-  await pageB.waitForTimeout(120);
-}
-await pageB.getByRole('button', { name: /Gabung/ }).click();
-await pageB.waitForTimeout(1800);
-await pageB.screenshot({ path: path.join(outDir, '02-room-b-joined.png') });
-
-// Close both room sheets so the HUD and aquarium are interactable again.
-await pageA.locator('.room-panel .sheet-header .icon-btn').click();
-await pageB.locator('.room-panel .sheet-header .icon-btn').click();
-await pageA.waitForTimeout(700);
-
+// B must receive the fish without any room code or room UI.
+await pageB.waitForFunction(
+  () => Number(document.querySelector('.fish-count')?.textContent || 0) >= 3,
+  null,
+  { timeout: 15000 },
+);
+await pageB.waitForTimeout(700);
 const countA = await pageA.locator('.fish-count').innerText();
 const countB = await pageB.locator('.fish-count').innerText();
-const roomLabelA = await pageA.locator('.room-label').innerText();
-const roomLabelB = await pageB.locator('.room-label').innerText();
-console.log('SYNCED_ROOM', JSON.stringify({ roomLabelA, roomLabelB, countA, countB }));
+const statusA = await pageA.locator('.ocean-label').innerText();
+const statusB = await pageB.locator('.ocean-label').innerText();
+console.log('GLOBAL_SYNC', JSON.stringify({ statusA, statusB, countA, countB }));
+
+await pageA.screenshot({ path: path.join(outDir, '01-global-a.png') });
+await pageB.screenshot({ path: path.join(outDir, '02-global-b.png') });
 
 // Feed from A while B watches.
 await pageA.locator('.dock-item').filter({ hasText: 'Pakan' }).click();
 await pageA.waitForTimeout(500);
 await pageA.mouse.click(700, 300);
 await pageA.waitForTimeout(800);
-await pageA.screenshot({ path: path.join(outDir, '03-aquarium-a.png') });
-await pageB.screenshot({ path: path.join(outDir, '04-aquarium-b.png') });
+await pageA.screenshot({ path: path.join(outDir, '03-feed-a.png') });
+await pageB.screenshot({ path: path.join(outDir, '04-feed-b.png') });
 
-// Open collection on B and verify remote fish is not in the local collection.
+// B's local collection stays private.
 await pageB.locator('.dock-item').filter({ hasText: 'Ikanku' }).click();
 await pageB.waitForSelector('.collection-panel');
 const bCollectionCount = await pageB.locator('.fish-card').count();

@@ -90,11 +90,8 @@ async function desktop() {
   await page.screenshot({ path: path.join(outDir, '07-collection.png') });
   await page.locator('.collection-panel .sheet-header .icon-btn').click();
 
-  await page.locator('.dock-item').filter({ hasText: 'Ruang' }).click();
-  await page.waitForSelector('.room-panel');
-  await page.waitForTimeout(400);
-  await page.screenshot({ path: path.join(outDir, '08-room.png') });
-  await page.locator('.room-panel .sheet-header .icon-btn').click();
+  await page.locator('.dock-item').filter({ hasText: 'Suara' }).click();
+  await page.locator('.dock-item').filter({ hasText: 'Suara' }).click();
 
   await page.locator('.dock-item').filter({ hasText: 'Foto' }).click();
   await page.waitForSelector('.photo-preview-frame img', { timeout: 15000 });

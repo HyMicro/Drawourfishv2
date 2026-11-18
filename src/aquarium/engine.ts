@@ -50,6 +50,7 @@ interface Swimmer {
   squash: number;
   age: number;
   hidden: boolean;
+  label: Container | null;
   isMine: boolean;
   isBot: boolean;
   remoteTargetX: number;
@@ -90,6 +91,16 @@ interface Ripple {
   y: number;
   age: number;
   life: number;
+}
+
+interface BackgroundFish {
+  sprite: Sprite;
+  speed: number;
+  direction: 1 | -1;
+  baseY: number;
+  sway: number;
+  phase: number;
+  width: number;
 }
 
 export interface AquariumCallbacks {
@@ -150,12 +161,17 @@ export class AquariumEngine {
   private app: Application | null = null;
 
   private backgroundSprite: Sprite | null = null;
+  private backgroundTexture: Texture | null = null;
   private raysSprite: Sprite | null = null;
   private bubbleTexture: Texture | null = null;
   private fishLayer = new Container();
   private bubbleLayer = new Container();
+  private labelLayer = new Container();
+  private bgFishLayer = new Container();
   private pelletLayer = new Container();
   private fxLayer = new Container();
+  private backgroundFish: BackgroundFish[] = [];
+  private silhouetteTextures: Texture[] = [];
   private swimmers = new Map<string, Swimmer>();
   private pellets = new Map<string, Pellet>();
   private bubbles: Bubble[] = [];
@@ -212,9 +228,16 @@ export class AquariumEngine {
     canvas.style.height = '100%';
     this.container.appendChild(canvas);
 
-    app.stage.addChild(this.bubbleLayer, this.fishLayer, this.pelletLayer, this.fxLayer);
+    app.stage.addChild(
+      this.bgFishLayer,
+      this.bubbleLayer,
+      this.fishLayer,
+      this.labelLayer,
+      this.pelletLayer,
+      this.fxLayer,
+    );
     this.bubbleTexture = makeBubbleTexture();
-    this.buildBackground();
+    await this.setupBackground();
     this.buildAmbientBubbles();
     this.attachPointer(canvas);
     app.ticker.add(this.tick);
@@ -245,185 +268,130 @@ export class AquariumEngine {
     return clamp(w / 1280, 0.94, 1.18);
   }
 
-  private buildBackground() {
+  private async setupBackground() {
     if (!this.app) return;
-    const width = Math.max(320, Math.round(this.width));
-    const height = Math.max(320, Math.round(this.height));
+    try {
+      this.backgroundTexture = await loadTexture('/underwater-bg.webp');
+      if (!this.app || this.destroyed) return;
+      const sprite = new Sprite(this.backgroundTexture);
+      sprite.anchor.set(0.5);
+      this.backgroundSprite = sprite;
+      this.app.stage.addChildAt(sprite, 0);
+      this.layoutBackground();
+      this.buildRays();
+      await this.loadSilhouettes();
+    } catch (error) {
+      console.warn('[aquarium] background image failed', error);
+    }
+  }
+
+  private layoutBackground() {
+    if (!this.app || !this.backgroundSprite) return;
+    const width = this.width;
+    const height = this.height;
+    const scale = Math.max(width / 1920, height / 1080);
+    this.backgroundSprite.width = 1920 * scale;
+    this.backgroundSprite.height = 1080 * scale;
+    this.backgroundSprite.position.set(width / 2, height / 2);
+  }
+
+  private buildRays() {
+    if (!this.app) return;
+    const width = Math.max(320, this.width);
+    const height = Math.max(320, this.height);
     const canvas = document.createElement('canvas');
-    canvas.width = width;
-    canvas.height = height;
+    canvas.width = Math.min(1280, width);
+    canvas.height = Math.min(720, height);
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-
-    const gradient = ctx.createLinearGradient(0, 0, 0, height);
-    gradient.addColorStop(0, '#c8f7ff');
-    gradient.addColorStop(0.32, '#88e5ef');
-    gradient.addColorStop(0.68, '#4cc5d3');
-    gradient.addColorStop(1, '#26a9ba');
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, width, height);
-
-    const sun = ctx.createRadialGradient(width * 0.68, -height * 0.12, 20, width * 0.68, -height * 0.12, height * 0.85);
-    sun.addColorStop(0, 'rgba(255, 255, 255, 0.72)');
-    sun.addColorStop(0.35, 'rgba(255, 248, 225, 0.28)');
-    sun.addColorStop(1, 'rgba(255, 248, 225, 0)');
-    ctx.fillStyle = sun;
-    ctx.fillRect(0, 0, width, height);
-
-    // Soft caustic light patches.
-    ctx.globalCompositeOperation = 'screen';
-    for (let i = 0; i < 12; i++) {
-      const x = (Math.sin(i * 12.9898) * 0.5 + 0.5) * width;
-      const y = (Math.sin(i * 78.233) * 0.5 + 0.5) * height * 0.52;
-      const r = 60 + ((i * 47) % 130);
-      const glow = ctx.createRadialGradient(x, y, 0, x, y, r);
-      glow.addColorStop(0, 'rgba(255, 255, 255, 0.16)');
-      glow.addColorStop(1, 'rgba(255, 255, 255, 0)');
-      ctx.fillStyle = glow;
+    const rw = canvas.width;
+    const rh = canvas.height;
+    for (let i = 0; i < 5; i++) {
+      const x = rw * (0.2 + i * 0.15);
+      const spread = rw * (0.035 + (i % 3) * 0.018);
+      const beam = ctx.createLinearGradient(x, 0, x + rh * 0.3, rh);
+      beam.addColorStop(0, 'rgba(232, 255, 255, 0.34)');
+      beam.addColorStop(0.45, 'rgba(215, 251, 255, 0.08)');
+      beam.addColorStop(1, 'rgba(215, 251, 255, 0)');
+      ctx.fillStyle = beam;
       ctx.beginPath();
-      ctx.arc(x, y, r, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    ctx.globalCompositeOperation = 'source-over';
-
-    // Pastel reef hills, echoing a soft storybook illustration.
-    const reefColors = ['rgba(255, 186, 208, 0.3)', 'rgba(143, 226, 205, 0.26)', 'rgba(255, 218, 164, 0.3)'];
-    for (let layer = 0; layer < 3; layer++) {
-      ctx.fillStyle = reefColors[layer];
-      ctx.beginPath();
-      const baseY = height * (0.82 + layer * 0.055);
-      ctx.moveTo(0, height);
-      ctx.lineTo(0, baseY);
-      for (let x = 0; x <= width; x += 28) {
-        const bump = Math.sin(x * 0.014 + layer * 2.4) * 16 + Math.sin(x * 0.006 + layer) * 22;
-        ctx.lineTo(x, baseY + bump);
-      }
-      ctx.lineTo(width, height);
+      ctx.moveTo(x - spread, 0);
+      ctx.lineTo(x + spread, 0);
+      ctx.lineTo(x + rh * 0.38 + spread, rh);
+      ctx.lineTo(x + rh * 0.38 - spread, rh);
       ctx.closePath();
       ctx.fill();
-    }
-
-    // A soft sandy bottom.
-    ctx.fillStyle = 'rgba(255, 236, 208, 0.75)';
-    ctx.beginPath();
-    ctx.moveTo(0, height);
-    ctx.lineTo(0, height * 0.94);
-    for (let x = 0; x <= width; x += 32) {
-      ctx.lineTo(x, height * 0.94 + Math.sin(x * 0.008) * 12 + Math.sin(x * 0.021) * 5);
-    }
-    ctx.lineTo(width, height);
-    ctx.closePath();
-    ctx.fill();
-    ctx.fillStyle = 'rgba(255, 183, 200, 0.5)';
-    for (let i = 0; i < 14; i++) {
-      const x = (i * 97 + 40) % width;
-      const y = height * 0.965 + (i % 3) * 8;
-      ctx.beginPath();
-      ctx.arc(x, y, 2 + (i % 2), 0, Math.PI * 2);
-      ctx.fill();
-    }
-
-    // Whimsical coral doodles.
-    const coral = (x: number, y: number, size: number, color: string) => {
-      ctx.save();
-      ctx.strokeStyle = color;
-      ctx.lineCap = 'round';
-      ctx.lineWidth = size * 0.13;
-      ctx.beginPath();
-      ctx.moveTo(x, y);
-      ctx.quadraticCurveTo(x - size * 0.1, y - size * 0.5, x - size * 0.02, y - size);
-      ctx.moveTo(x, y);
-      ctx.quadraticCurveTo(x + size * 0.25, y - size * 0.45, x + size * 0.3, y - size * 0.85);
-      ctx.moveTo(x, y - size * 0.35);
-      ctx.quadraticCurveTo(x - size * 0.35, y - size * 0.55, x - size * 0.38, y - size * 0.78);
-      ctx.stroke();
-      ctx.restore();
-    };
-    coral(width * 0.11, height * 0.98, 120, 'rgba(255, 143, 177, 0.55)');
-    coral(width * 0.89, height * 0.99, 100, 'rgba(255, 163, 191, 0.48)');
-    coral(width * 0.77, height * 0.97, 64, 'rgba(255, 212, 154, 0.55)');
-    coral(width * 0.27, height * 0.975, 54, 'rgba(126, 211, 198, 0.45)');
-
-    // Tiny hearts and stars floating in the water.
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
-    for (let i = 0; i < 9; i++) {
-      const x = (Math.sin(i * 31.7) * 0.5 + 0.5) * width;
-      const y = (0.12 + (i * 0.083) % 0.55) * height;
-      const s = 3 + (i % 3) * 2;
-      if (i % 2 === 0) {
-        ctx.beginPath();
-        ctx.arc(x - s * 0.45, y, s * 0.55, Math.PI, 0);
-        ctx.arc(x + s * 0.45, y, s * 0.55, Math.PI, 0);
-        ctx.lineTo(x, y + s * 0.9);
-        ctx.closePath();
-        ctx.fill();
-      } else {
-        ctx.beginPath();
-        for (let p = 0; p < 5; p++) {
-          const angle = -Math.PI / 2 + (p * Math.PI * 4) / 5;
-          const px = x + Math.cos(angle) * s;
-          const py = y + Math.sin(angle) * s;
-          if (p === 0) ctx.moveTo(px, py);
-          else ctx.lineTo(px, py);
-        }
-        ctx.closePath();
-        ctx.fill();
-      }
-    }
-
-    if (this.backgroundSprite) {
-      this.app.stage.removeChild(this.backgroundSprite);
-      this.backgroundSprite.texture.destroy(true);
-      this.backgroundSprite.destroy();
-    }
-    const texture = Texture.from(canvas);
-    this.backgroundSprite = new Sprite(texture);
-    this.backgroundSprite.width = width;
-    this.backgroundSprite.height = height;
-    this.app.stage.addChildAt(this.backgroundSprite, 0);
-
-    // Animated god rays as a screen-blended overlay.
-    const rays = document.createElement('canvas');
-    rays.width = Math.min(1024, width);
-    rays.height = Math.min(1024, height);
-    const rctx = rays.getContext('2d');
-    if (rctx) {
-      const rw = rays.width;
-      const rh = rays.height;
-      for (let i = 0; i < 5; i++) {
-        const x = rw * (0.18 + i * 0.16);
-        const spread = rw * (0.05 + (i % 3) * 0.02);
-        const beam = rctx.createLinearGradient(x, 0, x + rh * 0.35, rh);
-        beam.addColorStop(0, 'rgba(210, 249, 255, 0.28)');
-        beam.addColorStop(0.5, 'rgba(170, 240, 255, 0.07)');
-        beam.addColorStop(1, 'rgba(170, 240, 255, 0)');
-        rctx.fillStyle = beam;
-        rctx.beginPath();
-        rctx.moveTo(x - spread, 0);
-        rctx.lineTo(x + spread, 0);
-        rctx.lineTo(x + rh * 0.42 + spread, rh);
-        rctx.lineTo(x + rh * 0.42 - spread, rh);
-        rctx.closePath();
-        rctx.fill();
-      }
     }
     if (this.raysSprite) {
       this.app.stage.removeChild(this.raysSprite);
       this.raysSprite.texture.destroy(true);
       this.raysSprite.destroy();
     }
-    const raysTexture = Texture.from(rays);
-    this.raysSprite = new Sprite(raysTexture);
+    const texture = Texture.from(canvas);
+    this.raysSprite = new Sprite(texture);
     this.raysSprite.width = width;
     this.raysSprite.height = height;
     this.raysSprite.blendMode = 'screen';
-    this.raysSprite.alpha = 0.55;
+    this.raysSprite.alpha = 0.2;
     this.app.stage.addChildAt(this.raysSprite, 1);
+  }
 
-    this.scaleFactor = this.baseScale();
-    for (const swimmer of this.swimmers.values()) {
-      swimmer.x = clamp(swimmer.x, 40, width - 40);
-      swimmer.y = clamp(swimmer.y, height * 0.14, height * 0.9);
+  private async loadSilhouettes() {
+    if (!this.app || this.backgroundFish.length > 0) return;
+    const configs: Array<{ src: string; width: number; alpha: number; speed: number; y: number }> = [
+      { src: 'school-far', width: 190, alpha: 0.2, speed: 5, y: 0.25 },
+      { src: 'school-mid', width: 230, alpha: 0.24, speed: 8, y: 0.35 },
+      { src: 'school-near', width: 270, alpha: 0.28, speed: 12, y: 0.48 },
+      { src: 'fish-c', width: 70, alpha: 0.3, speed: 10, y: 0.58 },
+      { src: 'fish-a', width: 102, alpha: 0.25, speed: 7, y: 0.4 },
+      { src: 'fish-e', width: 100, alpha: 0.28, speed: 9, y: 0.65 },
+    ];
+    const results = await Promise.allSettled(
+      configs.map(async (cfg) => ({ cfg, texture: await loadTexture(`/silhouettes/${cfg.src}.png`) })),
+    );
+    if (!this.app || this.destroyed) return;
+    const width = this.width;
+    const height = this.height;
+    for (const result of results) {
+      if (result.status !== 'fulfilled') continue;
+      const { cfg, texture } = result.value;
+      this.silhouetteTextures.push(texture);
+      const sprite = new Sprite(texture);
+      sprite.anchor.set(0.5);
+      sprite.width = cfg.width;
+      sprite.height = texture.height * (cfg.width / texture.width);
+      sprite.alpha = cfg.alpha;
+      sprite.x = randomBetween(-width * 0.08, width * 1.08);
+      sprite.y = cfg.y * height + randomBetween(-18, 18);
+      this.bgFishLayer.addChild(sprite);
+      this.backgroundFish.push({
+        sprite,
+        speed: cfg.speed,
+        direction: Math.random() > 0.5 ? 1 : -1,
+        baseY: cfg.y,
+        sway: randomBetween(3, 10),
+        phase: randomBetween(0, Math.PI * 2),
+        width: cfg.width,
+      });
+    }
+  }
+
+  private updateBackgroundFish(dt: number) {
+    const width = this.width;
+    const height = this.height;
+    for (const fish of this.backgroundFish) {
+      fish.sprite.x += fish.direction * fish.speed * dt;
+      fish.sprite.y = fish.baseY * height + Math.sin(this.time * 0.22 + fish.phase) * fish.sway;
+      const half = fish.width / 2;
+      if (fish.direction === 1 && fish.sprite.x - half > width) {
+        fish.sprite.x = -half;
+        fish.direction = 1;
+        fish.baseY = clamp(fish.baseY + randomBetween(-0.08, 0.08), 0.18, 0.7);
+      } else if (fish.direction === -1 && fish.sprite.x + half < 0) {
+        fish.sprite.x = width + half;
+        fish.direction = -1;
+        fish.baseY = clamp(fish.baseY + randomBetween(-0.08, 0.08), 0.18, 0.7);
+      }
     }
   }
 
@@ -582,7 +550,38 @@ export class AquariumEngine {
       const hidden = hiddenIds.includes(swimmer.fish.id);
       swimmer.hidden = hidden;
       swimmer.root.visible = !hidden;
+      if (swimmer.label) swimmer.label.visible = !hidden;
     }
+  }
+
+  private createNameLabel(name: string): Container {
+    const label = new Text({
+      text: name.length > 16 ? `${name.slice(0, 15)}…` : name,
+      style: {
+        fontFamily: '"Nunito Variable", "Segoe UI", sans-serif',
+        fontSize: 11,
+        fontWeight: '800',
+        fill: '#4b372c',
+      },
+    });
+    label.anchor.set(0.5);
+    const padX = 7;
+    const padY = 4;
+    const bg = new Graphics();
+    bg.roundRect(
+      -label.width / 2 - padX,
+      -label.height / 2 - padY,
+      label.width + padX * 2,
+      label.height + padY * 2,
+      7,
+    )
+      .fill({ color: 0xfff8ea, alpha: 0.84 })
+      .stroke({ color: 0xffffff, width: 1.5, alpha: 0.9 });
+    const wrapper = new Container();
+    wrapper.addChild(bg, label);
+    wrapper.alpha = 0.94;
+    wrapper.visible = false;
+    return wrapper;
   }
 
   private async addSwimmer(fish: FishEntity) {
@@ -686,6 +685,7 @@ export class AquariumEngine {
         squash: 0,
         age: 0,
         hidden: this.pendingHidden.includes(fish.id),
+        label: null,
         isMine,
         isBot,
         remoteTargetX: x,
@@ -693,6 +693,8 @@ export class AquariumEngine {
         lastRemoteAt: performance.now(),
       };
       root.visible = !swimmer.hidden;
+      swimmer.label = this.createNameLabel(fish.name);
+      this.labelLayer.addChild(swimmer.label);
       this.swimmers.set(fish.id, swimmer);
       this.burstBubbles(x, y, 8, 0.7);
       if (isMine) sound.splash();
@@ -707,6 +709,7 @@ export class AquariumEngine {
     const swimmer = this.swimmers.get(id);
     if (!swimmer) return;
     this.swimmers.delete(id);
+    swimmer.label?.destroy({ children: true });
     swimmer.root.destroy({ children: true });
     swimmer.texture?.destroy(true);
   }
@@ -720,9 +723,10 @@ export class AquariumEngine {
     const now = this.time;
 
     if (this.raysSprite) {
-      this.raysSprite.alpha = 0.42 + Math.sin(now * 0.22) * 0.12;
-      this.raysSprite.x = Math.sin(now * 0.08) * 22;
+      this.raysSprite.alpha = 0.16 + Math.sin(now * 0.22) * 0.045;
+      this.raysSprite.x = Math.sin(now * 0.08) * 14;
     }
+    this.updateBackgroundFish(dt);
 
     for (const bubble of this.bubbles) {
       bubble.sprite.y -= bubble.speed * dt;
@@ -799,6 +803,11 @@ export class AquariumEngine {
     swimmer.root.rotation += shortestAngle(swimmer.root.rotation, targetRotation) * Math.min(1, dt * 9);
     swimmer.root.x = swimmer.x;
     swimmer.root.y = swimmer.y;
+    if (swimmer.label) {
+      swimmer.label.position.set(swimmer.x, swimmer.y - swimmer.size * 0.52);
+      swimmer.label.alpha = 0.94 * Math.min(1, intro);
+      swimmer.label.visible = !swimmer.hidden && swimmer.age > 0.12;
+    }
     const squashX = (1 + swimmer.squash * 0.13) * (1 - swimmer.flipPulse * 0.16);
     const squashY = 1 - swimmer.squash * 0.16;
     const displayScale = swimmer.displayScale;
@@ -1160,13 +1169,20 @@ export class AquariumEngine {
   private handleResize() {
     if (!this.app) return;
     this.scaleFactor = this.baseScale();
-    this.buildBackground();
+    this.layoutBackground();
+    this.buildRays();
     this.buildAmbientBubbles();
     for (const swimmer of this.swimmers.values()) {
       swimmer.x = clamp(swimmer.x, 46, this.width - 46);
       swimmer.y = clamp(swimmer.y, this.height * 0.12, this.height * 0.9);
       swimmer.remoteTargetX = clamp(swimmer.remoteTargetX, 46, this.width - 46);
       swimmer.remoteTargetY = clamp(swimmer.remoteTargetY, this.height * 0.12, this.height * 0.9);
+    }
+    for (const fish of this.backgroundFish) {
+      fish.sprite.y = fish.baseY * this.height;
+      if (fish.sprite.x < -fish.width || fish.sprite.x > this.width + fish.width) {
+        fish.sprite.x = fish.direction === 1 ? -fish.width / 2 : this.width + fish.width / 2;
+      }
     }
   }
 
@@ -1198,11 +1214,16 @@ export class AquariumEngine {
     }
     window.removeEventListener('blur', this.onPointerCancel);
     for (const swimmer of this.swimmers.values()) {
+      swimmer.label?.destroy({ children: true });
       swimmer.texture?.destroy(true);
     }
     this.swimmers.clear();
     this.pellets.clear();
     this.bubbleTexture?.destroy(true);
+    this.backgroundTexture?.destroy(true);
+    this.raysSprite?.texture.destroy(true);
+    for (const texture of this.silhouetteTextures) texture.destroy(true);
+    this.silhouetteTextures = [];
     if (this.app) {
       this.app.ticker.remove(this.tick);
       this.app.destroy({ removeView: true }, { children: true, texture: false, textureSource: false });

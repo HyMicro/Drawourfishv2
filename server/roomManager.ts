@@ -6,7 +6,6 @@ import {
   MAX_FISH_PER_OWNER,
   MAX_TEXTURE_BYTES,
   ROOM_CAPACITY,
-  SEA_ICONS,
   type ClientMessage,
   type EmoteKind,
   type FishEntity,
@@ -22,7 +21,6 @@ const MAX_NAME = 22;
 const MAX_MESSAGES_PER_10S = 160;
 
 const clients = new Set<Client>();
-const codeIndex = new Map<string, string>();
 let publicShardCounter = 0;
 
 function send(client: Client, message: ServerMessage) {
@@ -37,47 +35,13 @@ function sendRoom(room: Room, message: ServerMessage, except?: Client) {
   }
 }
 
-function randomRoomCode(): string[] {
-  const code: string[] = [];
-  for (let i = 0; i < 4; i++) {
-    code.push(SEA_ICONS[Math.floor(Math.random() * SEA_ICONS.length)]);
-  }
-  return code;
-}
-
-function makePrivateRoom(): Room {
-  let code = randomRoomCode();
-  let key = code.join('');
-  while (codeIndex.has(key)) {
-    code = randomRoomCode();
-    key = code.join('');
-  }
-  const room: Room = {
-    info: {
-      id: `private-${randomUUID().slice(0, 8)}`,
-      code,
-      kind: 'private',
-      capacity: ROOM_CAPACITY,
-      label: 'Ruang Keluarga',
-    },
-    clients: new Set(),
-    fishes: new Map(),
-    syncs: new Map(),
-  };
-  rooms.set(room.info.id, room);
-  codeIndex.set(key, room.info.id);
-  return room;
-}
-
 function makePublicRoom(): Room {
   publicShardCounter += 1;
   const room: Room = {
     info: {
       id: `ocean-${publicShardCounter}`,
-      code: ['🌊', '🐠', '🫧', '☀️'],
-      kind: 'public',
       capacity: ROOM_CAPACITY,
-      label: `Ocean Publik #${publicShardCounter}`,
+      label: 'Ocean Global',
     },
     clients: new Set(),
     fishes: new Map(),
@@ -90,7 +54,6 @@ function makePublicRoom(): Room {
 function findPublicRoom(): Room {
   let best: Room | null = null;
   for (const room of rooms.values()) {
-    if (room.info.kind !== 'public') continue;
     if (room.clients.size >= MAX_CLIENTS_PER_ROOM) continue;
     if (room.fishes.size >= ROOM_CAPACITY) continue;
     if (!best || room.fishes.size < best.fishes.size) best = room;
@@ -110,11 +73,7 @@ function leaveRoom(client: Client) {
   }
   room.clients.delete(client);
   client.room = null;
-  if (room.info.kind === 'private' && room.clients.size === 0) {
-    rooms.delete(room.info.id);
-    codeIndex.delete(room.info.code.join(''));
-  }
-  if (room.info.kind === 'public' && room.clients.size === 0 && rooms.size > 1) {
+  if (room.clients.size === 0 && rooms.size > 1) {
     rooms.delete(room.info.id);
   }
 }
@@ -251,7 +210,7 @@ function handleSpawn(client: Client, message: Extract<ClientMessage, { type: 'FI
   const existing = typeof fishId === 'string' ? room.fishes.get(fishId) : undefined;
   if (existing && existing.ownerId !== client.ownerId) return;
   if (!existing && room.fishes.size >= ROOM_CAPACITY) {
-    send(client, { type: 'ERROR', code: 'ROOM_FULL', message: 'Akuarium penuh, ikanmu berenang lokal dulu.' });
+    send(client, { type: 'ERROR', code: 'OCEAN_FULL', message: 'Akuarium penuh, ikanmu berenang lokal dulu.' });
     return;
   }
   const ownCount = [...room.fishes.values()].filter((f) => f.ownerId === client.ownerId).length;
@@ -379,36 +338,6 @@ function handleMessage(client: Client, message: ClientMessage) {
     case 'EMOTE_SEND':
       handleEmote(client, message);
       break;
-    case 'CREATE_PRIVATE': {
-      leaveRoom(client);
-      enterRoom(client, makePrivateRoom());
-      break;
-    }
-    case 'JOIN_PRIVATE': {
-      if (!Array.isArray(message.code) || message.code.length !== 4) {
-        send(client, { type: 'ERROR', code: 'INVALID_CODE', message: 'Kode ruang harus 4 ikon.' });
-        return;
-      }
-      const roomId = codeIndex.get(message.code.join(''));
-      const room = roomId ? rooms.get(roomId) : undefined;
-      if (!room) {
-        send(client, { type: 'ERROR', code: 'ROOM_NOT_FOUND', message: 'Ruang tidak ditemukan.' });
-        return;
-      }
-      if (room.clients.size >= MAX_CLIENTS_PER_ROOM) {
-        send(client, { type: 'ERROR', code: 'ROOM_FULL', message: 'Ruang ini sedang penuh.' });
-        return;
-      }
-      leaveRoom(client);
-      enterRoom(client, room);
-      break;
-    }
-    case 'LEAVE_PRIVATE': {
-      if (!client.room) return;
-      leaveRoom(client);
-      enterRoom(client, findPublicRoom());
-      break;
-    }
     case 'PING':
       send(client, { type: 'PONG' });
       break;

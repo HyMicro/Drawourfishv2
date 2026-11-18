@@ -4,8 +4,8 @@ import path from 'node:path';
 
 const outDir = path.join(process.env.TEMP || '.', 'dyf-offline');
 fs.mkdirSync(outDir, { recursive: true });
-const base = 'http://localhost:8787';
-const browser = await chromium.launch({ headless: false });
+const base = process.env.BASE_URL || 'http://localhost:8787';
+const browser = await chromium.launch({ headless: process.env.HEADLESS !== '0' });
 const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
 const page = await context.newPage();
 const errors = [];
@@ -87,12 +87,12 @@ await context.setOffline(true);
 await page.reload({ waitUntil: 'domcontentloaded', timeout: 20000 });
 await page.waitForSelector('.draw-fab', { timeout: 20000 });
 await page.waitForFunction(
-  () => document.querySelector('.room-label')?.textContent === 'Local Reef',
+  () => document.querySelector('.ocean-label')?.textContent === 'Local Reef',
   null,
   { timeout: 20000 },
 );
 await page.waitForTimeout(1200);
-const offlineReloadLabel = await page.locator('.room-label').innerText();
+const offlineReloadLabel = await page.locator('.ocean-label').innerText();
 const offlineCount = await page.locator('.fish-count').innerText();
 const technicalToasts = await page.locator('.toast').filter({ hasText: /error|failed|websocket|gagal|error teknis/i }).count();
 console.log('OFFLINE_RELOAD', JSON.stringify({ offlineReloadLabel, offlineCount, technicalToasts }));

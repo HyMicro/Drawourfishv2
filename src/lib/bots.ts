@@ -1,10 +1,9 @@
 import type { FishEntity, FishTemplateId } from '../../shared/protocol';
 import { getTemplate } from '../data/templates';
-import { renderFishTexture } from './fishArt';
 import { createId, randomBetween } from './utils';
 
 const BOT_NAMES = ['Kiki', 'Bubbles', 'Mochi', 'Pip'];
-const BOT_TEMPLATES: FishTemplateId[] = ['goldfish', 'puffer', 'betta', 'squid'];
+const BOT_TEMPLATES: FishTemplateId[] = ['goldfish', 'puffer', 'bubblefish', 'tang'];
 
 /** Friendly AI reef residents used for the offline / local fallback. */
 const BOT_SPAWNS = [
@@ -24,7 +23,7 @@ export function createBotFishes(): FishEntity[] {
       ownerId: 'bot-reef',
       name,
       templateId,
-      textureData: renderFishTexture(template),
+      textureData: template.textureUrl,
       createdAt: Date.now(),
       transform: {
         x: spawn.x,

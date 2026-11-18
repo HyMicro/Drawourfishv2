@@ -60,17 +60,17 @@ export function composePhoto(shot: HTMLCanvasElement): HTMLCanvasElement {
   if (!ctx) return canvas;
 
   const background = ctx.createLinearGradient(0, 0, W, H);
-  background.addColorStop(0, '#fff0f6');
-  background.addColorStop(0.45, '#ddf8fb');
-  background.addColorStop(1, '#ffe2ed');
+  background.addColorStop(0, '#fff8ec');
+  background.addColorStop(0.45, '#dff6f4');
+  background.addColorStop(1, '#ffe6cb');
   ctx.fillStyle = background;
   ctx.fillRect(0, 0, W, H);
 
   // Soft pastel glow.
   const glow = ctx.createRadialGradient(W * 0.24, H * 0.05, 20, W * 0.24, H * 0.05, 780);
   glow.addColorStop(0, 'rgba(255, 255, 255, 0.9)');
-  glow.addColorStop(0.55, 'rgba(255, 216, 231, 0.16)');
-  glow.addColorStop(1, 'rgba(255, 216, 231, 0)');
+  glow.addColorStop(0.55, 'rgba(255, 205, 150, 0.2)');
+  glow.addColorStop(1, 'rgba(255, 205, 150, 0)');
   ctx.fillStyle = glow;
   ctx.fillRect(0, 0, W, H);
 
@@ -85,7 +85,7 @@ export function composePhoto(shot: HTMLCanvasElement): HTMLCanvasElement {
     ctx.arc(x, y, radius, 0, Math.PI * 2);
     ctx.stroke();
   }
-  ctx.fillStyle = 'rgba(255, 143, 177, 0.28)';
+  ctx.fillStyle = 'rgba(226, 137, 77, 0.24)';
   for (let i = 0; i < 7; i++) {
     const x = (Math.sin(i * 5.7) * 0.5 + 0.5) * W;
     const y = (Math.sin(i * 9.1) * 0.5 + 0.5) * H;
@@ -104,7 +104,7 @@ export function composePhoto(shot: HTMLCanvasElement): HTMLCanvasElement {
   const cardW = W - 112;
   const cardH = 1146;
   ctx.save();
-  ctx.shadowColor = 'rgba(170, 111, 132, 0.26)';
+  ctx.shadowColor = 'rgba(112, 79, 52, 0.26)';
   ctx.shadowBlur = 60;
   ctx.shadowOffsetY = 28;
   roundedRect(ctx, cardX, cardY, cardW, cardH, 58);
@@ -118,41 +118,46 @@ export function composePhoto(shot: HTMLCanvasElement): HTMLCanvasElement {
   ctx.stroke();
 
   roundedRect(ctx, cardX + 16, cardY + 16, cardW - 32, cardH - 32, 46);
-  ctx.strokeStyle = '#f6d3df';
+  ctx.strokeStyle = '#e8d2b8';
   ctx.lineWidth = 2.5;
   ctx.setLineDash([10, 9]);
   ctx.stroke();
   ctx.setLineDash([]);
 
   // Header.
-  ctx.fillStyle = '#ff7da8';
+  ctx.fillStyle = '#b76132';
   ctx.font = '800 22px "Nunito Variable", "Segoe UI", sans-serif';
   ctx.letterSpacing = '5px';
-  ctx.fillText('SHARED LIVE REEF', cardX + 52, cardY + 70);
+  ctx.fillText('OCEAN GLOBAL', cardX + 52, cardY + 70);
   ctx.letterSpacing = '0px';
-  ctx.fillStyle = '#5b4450';
+  ctx.fillStyle = '#4b372c';
   ctx.font = '600 74px "Fredoka Variable", ui-rounded, "Segoe UI", sans-serif';
   ctx.fillText('Draw Our Fish', cardX + 50, cardY + 154);
   ctx.font = '700 24px "Nunito Variable", "Segoe UI", sans-serif';
-  ctx.fillStyle = '#a88695';
+  ctx.fillStyle = '#8a6a52';
   ctx.fillText('Postcard dari akuarium bersama', cardX + 52, cardY + 196);
 
-  // Tiny bow decoration in the top-right corner.
-  const bowX = cardX + cardW - 82;
-  const bowY = cardY + 78;
-  ctx.fillStyle = '#ff8eb4';
-  ctx.strokeStyle = '#ffffff';
-  ctx.lineWidth = 5;
+  // Warm sun stamp in the top-right corner.
+  const sunX = cardX + cardW - 82;
+  const sunY = cardY + 78;
   ctx.save();
+  ctx.strokeStyle = '#e2894d';
+  ctx.lineWidth = 4;
+  ctx.lineCap = 'round';
+  for (let i = 0; i < 8; i++) {
+    const angle = (i / 8) * Math.PI * 2;
+    ctx.beginPath();
+    ctx.moveTo(sunX + Math.cos(angle) * 20, sunY + Math.sin(angle) * 20);
+    ctx.lineTo(sunX + Math.cos(angle) * 28, sunY + Math.sin(angle) * 28);
+    ctx.stroke();
+  }
+  ctx.fillStyle = '#e2894d';
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = 4;
   ctx.beginPath();
-  ctx.ellipse(bowX - 18, bowY, 20, 14, -0.35, 0, Math.PI * 2);
-  ctx.ellipse(bowX + 18, bowY, 20, 14, 0.35, 0, Math.PI * 2);
+  ctx.arc(sunX, sunY, 16, 0, Math.PI * 2);
   ctx.fill();
   ctx.stroke();
-  ctx.fillStyle = '#ffffff';
-  ctx.beginPath();
-  ctx.arc(bowX, bowY, 6, 0, Math.PI * 2);
-  ctx.fill();
   ctx.restore();
 
   // Aquarium capture.
@@ -177,23 +182,23 @@ export function composePhoto(shot: HTMLCanvasElement): HTMLCanvasElement {
 
   // Date & caption.
   const infoY = shotY + shotH + 92;
-  ctx.fillStyle = '#d17492';
+  ctx.fillStyle = '#b76132';
   ctx.font = '800 20px "Nunito Variable", "Segoe UI", sans-serif';
   ctx.letterSpacing = '4px';
   ctx.fillText('TANGGAL TANGKAPAN', shotX + 4, infoY);
   ctx.letterSpacing = '0px';
-  ctx.fillStyle = '#5b4450';
+  ctx.fillStyle = '#4b372c';
   ctx.font = '600 38px "Fredoka Variable", ui-rounded, "Segoe UI", sans-serif';
   ctx.fillText(formatDateID(new Date()), shotX + 2, infoY + 52);
 
   ctx.textAlign = 'right';
-  ctx.fillStyle = '#a88695';
+  ctx.fillStyle = '#8a6a52';
   ctx.font = '700 24px "Nunito Variable", "Segoe UI", sans-serif';
   ctx.fillText('🐠  🫧  🎵', shotX + shotW - 4, infoY + 36);
   ctx.textAlign = 'left';
 
   // Footer signature.
-  ctx.strokeStyle = '#f6d3df';
+  ctx.strokeStyle = '#e8d2b8';
   ctx.lineWidth = 2.5;
   ctx.setLineDash([10, 8]);
   ctx.beginPath();
@@ -202,13 +207,13 @@ export function composePhoto(shot: HTMLCanvasElement): HTMLCanvasElement {
   ctx.stroke();
   ctx.setLineDash([]);
 
-  ctx.fillStyle = '#a88695';
+  ctx.fillStyle = '#8a6a52';
   ctx.font = '700 21px "Nunito Variable", "Segoe UI", sans-serif';
   ctx.fillText('Setiap ikan punya cerita. Dibuat dengan imajinasi.', cardX + 50, cardY + cardH - 76);
   ctx.textAlign = 'right';
-  ctx.fillStyle = '#ff7da8';
+  ctx.fillStyle = '#b76132';
   ctx.font = '600 22px "Fredoka Variable", ui-rounded, "Segoe UI", sans-serif';
-  ctx.fillText('drawourfish.app', cardX + cardW - 50, cardY + cardH - 76);
+  ctx.fillText('drawourfish.pages.dev', cardX + cardW - 50, cardY + cardH - 76);
   ctx.textAlign = 'left';
 
   return canvas;

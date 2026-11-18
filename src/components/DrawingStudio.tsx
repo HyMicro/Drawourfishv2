@@ -1,9 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FishTemplate } from '../data/templates';
 import { STUDIO_SWATCHES, TEMPLATES, TEMPLATE_MAP } from '../data/templates';
-import { drawFishArt, exportFishTexture, exportFreeFish, rgba, templatePath } from '../lib/fishArt';
+import {
+  drawTemplateFish,
+  exportFreeFish,
+  exportTemplateFish,
+  hexToRgb,
+  loadTemplateImages,
+  rgba,
+  type TemplateImages,
+} from '../lib/fishArt';
 import { sound } from '../lib/audio';
-import { createId, hslToHex, hueFromHex, randomBetween } from '../lib/utils';
+import { createId, hslFromHex, hslToHex, randomBetween } from '../lib/utils';
 import { normalizeFishName, randomFishName } from '../lib/names';
 import { useGameStore } from '../store/useGameStore';
 import type { FishEntity, FishTemplateId } from '../../shared/protocol';
@@ -17,6 +25,14 @@ const TOOL_SIZES = { min: 6, max: 64 };
 
 type Tool = 'brush' | 'fill' | 'eraser';
 type BrushStyle = 'marker' | 'pencil' | 'crayon' | 'airbrush';
+type BlendMode = 'source-over' | 'multiply' | 'screen' | 'overlay';
+
+const BLEND_MODES: Array<{ id: BlendMode; label: string }> = [
+  { id: 'source-over', label: 'Normal' },
+  { id: 'multiply', label: 'Multiply' },
+  { id: 'screen', label: 'Screen' },
+  { id: 'overlay', label: 'Overlay' },
+];
 
 const BRUSH_STYLES: Array<{ id: BrushStyle; label: string; icon: IconName }> = [
   { id: 'marker', label: 'Spidol', icon: 'marker' },
@@ -57,9 +73,10 @@ function paintDot(
   size: number,
   color: string,
   style: BrushStyle,
+  blend: BlendMode,
 ) {
   ctx.save();
-  ctx.globalCompositeOperation = 'source-over';
+  ctx.globalCompositeOperation = blend;
   ctx.fillStyle = color;
   if (style === 'airbrush') {
     ctx.globalAlpha = 0.2;
@@ -98,9 +115,10 @@ function paintSegment(
   size: number,
   color: string,
   style: BrushStyle,
+  blend: BlendMode,
 ) {
   ctx.save();
-  ctx.globalCompositeOperation = 'source-over';
+  ctx.globalCompositeOperation = blend;
   ctx.strokeStyle = color;
   ctx.fillStyle = color;
   ctx.lineCap = 'round';
@@ -208,8 +226,13 @@ export function DrawingStudio() {
   const [templateId, setTemplateId] = useState<FishTemplateId>('goldfish');
   const template = TEMPLATE_MAP[templateId];
   const isFree = templateId === FREE_ID;
-  const [color, setColor] = useState('#FF7DA8');
-  const [hue, setHue] = useState(() => hueFromHex('#FF7DA8'));
+  const initialColor = '#F4A259';
+  const initialHsl = hslFromHex(initialColor);
+  const [color, setColor] = useState(initialColor);
+  const [hue, setHue] = useState(initialHsl.h);
+  const [saturation, setSaturation] = useState(initialHsl.s);
+  const [lightness, setLightness] = useState(initialHsl.l);
+  const [blend, setBlend] = useState<BlendMode>('source-over');
   const [tool, setTool] = useState<Tool>('brush');
   const [brushStyle, setBrushStyle] = useState<BrushStyle>('marker');
   const [brushSize, setBrushSize] = useState(30);
@@ -220,6 +243,10 @@ export function DrawingStudio() {
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const paintRef = useRef<HTMLCanvasElement | null>(null);
+  const strokeRef = useRef<HTMLCanvasElement | null>(null);
+  const compositeRef = useRef<HTMLCanvasElement | null>(null);
+  const strokeBlendRef = useRef<BlendMode>('source-over');
+  const strokeDirtyRef = useRef(false);
   const maskRef = useRef<HTMLCanvasElement | null>(null);
   const maskDataRef = useRef<ImageData | null>(null);
   const historyRef = useRef<ImageData[]>([]);
@@ -233,10 +260,54 @@ export function DrawingStudio() {
   const cursorRef = useRef<HTMLDivElement>(null);
   const templateRef = useRef<FishTemplate>(template);
   const freeRef = useRef(isFree);
+  const assetsRef = useRef<TemplateImages | null>(null);
   templateRef.current = template;
   freeRef.current = isFree;
 
   const paintContext = () => paintRef.current?.getContext('2d', { willReadFrequently: true }) ?? null;
+  const strokeContext = () => strokeRef.current?.getContext('2d', { willReadFrequently: true }) ?? null;
+
+  const clearStroke = useCallback(() => {
+    const ctx = strokeContext();
+    if (ctx) {
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.globalAlpha = 1;
+      ctx.clearRect(0, 0, SIZE, SIZE);
+    }
+    strokeDirtyRef.current = false;
+  }, []);
+
+  const composePaint = () => {
+    const paint = paintRef.current;
+    const stroke = strokeRef.current;
+    const composite = compositeRef.current;
+    if (!paint || !stroke || !composite || !strokeDirtyRef.current) return paint;
+    const ctx = composite.getContext('2d');
+    if (!ctx) return paint;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = 1;
+    ctx.clearRect(0, 0, SIZE, SIZE);
+    ctx.drawImage(paint, 0, 0);
+    ctx.globalCompositeOperation = strokeBlendRef.current;
+    ctx.drawImage(stroke, 0, 0);
+    ctx.globalCompositeOperation = 'source-over';
+    return composite;
+  };
+
+  const flattenStroke = useCallback(() => {
+    if (!strokeDirtyRef.current) return;
+    const ctx = paintContext();
+    const stroke = strokeRef.current;
+    if (!ctx || !stroke) return;
+    ctx.save();
+    ctx.globalCompositeOperation = strokeBlendRef.current;
+    ctx.globalAlpha = 1;
+    ctx.drawImage(stroke, 0, 0);
+    ctx.restore();
+    clearStroke();
+  }, [clearStroke]);
 
   const render = useCallback(() => {
     const canvas = canvasRef.current;
@@ -246,17 +317,15 @@ export function DrawingStudio() {
     if (!ctx) return;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, SIZE, SIZE);
+    const source = composePaint();
+    if (!source) return;
     if (freeRef.current) {
-      ctx.drawImage(paint, 0, 0, SIZE, SIZE);
+      ctx.drawImage(source, 0, 0, SIZE, SIZE);
       return;
     }
-    drawFishArt(ctx, templateRef.current, SIZE, {
-      paint,
-      paintSize: SIZE,
-      withShading: true,
-      withOutline: true,
-      withEye: true,
-    });
+    const assets = assetsRef.current;
+    if (!assets) return;
+    drawTemplateFish(ctx, assets, source, SIZE, SIZE);
   }, []);
 
   const scheduleRender = useCallback(() => {
@@ -274,16 +343,12 @@ export function DrawingStudio() {
     if (!ctx) return;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, SIZE, SIZE);
-    if (freeRef.current) {
+    const assets = assetsRef.current;
+    if (freeRef.current || !assets) {
       maskDataRef.current = null;
       return;
     }
-    ctx.save();
-    const scale = SIZE / 1024;
-    ctx.scale(scale, scale);
-    ctx.fillStyle = '#fff';
-    ctx.fill(templatePath(templateRef.current));
-    ctx.restore();
+    ctx.drawImage(assets.shape, 0, 0, SIZE, SIZE);
     maskDataRef.current = ctx.getImageData(0, 0, SIZE, SIZE);
   }, []);
 
@@ -294,10 +359,11 @@ export function DrawingStudio() {
     ctx.globalCompositeOperation = 'source-over';
     ctx.globalAlpha = 1;
     ctx.clearRect(0, 0, SIZE, SIZE);
+    clearStroke();
     historyRef.current = [];
     setCanUndo(false);
     scheduleRender();
-  }, [scheduleRender]);
+  }, [scheduleRender, clearStroke]);
 
   useEffect(() => {
     const display = canvasRef.current;
@@ -310,15 +376,21 @@ export function DrawingStudio() {
     paint.height = SIZE;
     paintRef.current = paint;
 
+    const stroke = document.createElement('canvas');
+    stroke.width = SIZE;
+    stroke.height = SIZE;
+    strokeRef.current = stroke;
+
+    const composite = document.createElement('canvas');
+    composite.width = SIZE;
+    composite.height = SIZE;
+    compositeRef.current = composite;
+
     const mask = document.createElement('canvas');
     mask.width = SIZE;
     mask.height = SIZE;
     maskRef.current = mask;
 
-    freeRef.current = template.free === true;
-    rebuildMask();
-    resetPaint();
-    render();
     return () => {
       if (rafRef.current !== null) window.cancelAnimationFrame(rafRef.current);
       historyRef.current = [];
@@ -326,16 +398,34 @@ export function DrawingStudio() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const firstTemplate = useRef(true);
   useEffect(() => {
-    if (firstTemplate.current) {
-      firstTemplate.current = false;
-      return;
-    }
-    freeRef.current = template.free === true;
-    rebuildMask();
-    resetPaint();
-  }, [template, rebuildMask, resetPaint]);
+    let cancelled = false;
+    assetsRef.current = null;
+    const prepare = async () => {
+      if (template.free) {
+        freeRef.current = true;
+        rebuildMask();
+        resetPaint();
+        render();
+        return;
+      }
+      freeRef.current = false;
+      try {
+        const assets = await loadTemplateImages(template);
+        if (cancelled || !assets) return;
+        assetsRef.current = assets;
+        rebuildMask();
+        resetPaint();
+        render();
+      } catch (error) {
+        console.warn('[studio] template image failed', error);
+      }
+    };
+    void prepare();
+    return () => {
+      cancelled = true;
+    };
+  }, [template, rebuildMask, resetPaint, render]);
 
   const pushHistory = useCallback(() => {
     const ctx = paintContext();
@@ -476,10 +566,15 @@ export function DrawingStudio() {
     }
 
     pushHistory();
+    strokeBlendRef.current = blend;
     if (tool === 'eraser') {
       eraseDot(ctx, point, brushSize);
     } else {
-      paintDot(ctx, point, brushSize, color, brushStyle);
+      const sctx = strokeContext();
+      if (!sctx) return;
+      clearStroke();
+      paintDot(sctx, point, brushSize, color, brushStyle, 'source-over');
+      strokeDirtyRef.current = true;
     }
     sound.brushStart();
     sound.brushMove(0.2);
@@ -512,7 +607,10 @@ export function DrawingStudio() {
     if (tool === 'eraser') {
       eraseSegment(ctx, midRef.current, last, mid, brushSize);
     } else {
-      paintSegment(ctx, midRef.current, last, mid, brushSize, color, brushStyle);
+      const sctx = strokeContext();
+      if (!sctx) return;
+      paintSegment(sctx, midRef.current, last, mid, brushSize, color, brushStyle, 'source-over');
+      strokeDirtyRef.current = true;
     }
     midRef.current = mid;
     lastRef.current = point;
@@ -529,11 +627,14 @@ export function DrawingStudio() {
     if (pointerRef.current !== event.pointerId) return;
     if (drawingRef.current && tool !== 'fill') {
       const ctx = paintContext();
+      const sctx = strokeContext();
       if (ctx) {
         if (tool === 'eraser') {
           eraseSegment(ctx, midRef.current, lastRef.current, lastRef.current, brushSize);
-        } else {
-          paintSegment(ctx, midRef.current, lastRef.current, lastRef.current, brushSize, color, brushStyle);
+        } else if (sctx) {
+          paintSegment(sctx, midRef.current, lastRef.current, lastRef.current, brushSize, color, brushStyle, 'source-over');
+          strokeDirtyRef.current = true;
+          flattenStroke();
         }
         scheduleRender();
       }
@@ -578,8 +679,11 @@ export function DrawingStudio() {
   };
 
   const chooseColor = (next: string) => {
+    const hsl = hslFromHex(next);
     setColor(next);
-    setHue(hueFromHex(next));
+    setHue(hsl.h);
+    setSaturation(hsl.s);
+    setLightness(hsl.l);
     if (tool === 'eraser') setTool('brush');
     sound.chime('soft');
   };
@@ -597,7 +701,12 @@ export function DrawingStudio() {
     sound.chime('bright');
     window.setTimeout(() => {
       try {
-        const exported = isFree ? exportFreeFish(paint) : exportFishTexture(templateRef.current, paint);
+        const assets = assetsRef.current;
+        const exported = isFree
+          ? exportFreeFish(paint)
+          : assets
+            ? exportTemplateFish(assets, paint)
+            : { dataUrl: '', bytes: 0 };
         if (!exported.dataUrl || !exported.dataUrl.startsWith('data:image/')) {
           addToast('Gambar ikanmu dulu ya, baru dilepas!', 'warn');
           setSaving(false);
@@ -680,7 +789,7 @@ export function DrawingStudio() {
                   <path
                     d="M 300 512 C 360 420 500 380 640 400 C 740 415 812 460 858 512 C 812 565 740 610 640 620 C 500 640 360 600 300 512 Z M 312 512 C 250 470 200 440 150 430 C 190 480 190 540 150 594 C 205 580 260 580 312 600"
                     fill="none"
-                    stroke="#ff9fbe"
+                    stroke="#d9a06a"
                     strokeWidth="10"
                     strokeDasharray="20 22"
                     strokeLinecap="round"
@@ -801,20 +910,74 @@ export function DrawingStudio() {
                   onChange={(event) => {
                     const nextHue = Number(event.target.value);
                     setHue(nextHue);
-                    setColor(hslToHex(nextHue));
+                    setColor(hslToHex(nextHue, saturation, lightness));
                     setTool((current) => (current === 'eraser' ? 'brush' : current));
                   }}
                 />
               </div>
+              <div className="hue-wrap">
+                <span>Sat.</span>
+                <input
+                  aria-label="Saturasi warna"
+                  className="sat-slider"
+                  type="range"
+                  min={0}
+                  max={100}
+                  value={saturation}
+                  onChange={(event) => {
+                    const next = Number(event.target.value);
+                    setSaturation(next);
+                    setColor(hslToHex(hue, next, lightness));
+                  }}
+                />
+              </div>
+              <div className="hue-wrap">
+                <span>Terang</span>
+                <input
+                  aria-label="Kecerahan warna"
+                  className="light-slider"
+                  type="range"
+                  min={18}
+                  max={92}
+                  value={lightness}
+                  onChange={(event) => {
+                    const next = Number(event.target.value);
+                    setLightness(next);
+                    setColor(hslToHex(hue, saturation, next));
+                  }}
+                />
+              </div>
+              <div className="color-readout">
+                <span className="color-dot" style={{ background: color }} />
+                <strong>{color.toUpperCase()}</strong>
+                <span>
+                  RGB {hexToRgb(color).join(' · ')}
+                </span>
+              </div>
+              <div className="blend-row">
+                <span>Blend</span>
+                {BLEND_MODES.map((mode) => (
+                  <button
+                    key={mode.id}
+                    type="button"
+                    className={`blend-chip ${blend === mode.id ? 'active' : ''}`}
+                    onClick={() => setBlend(mode.id)}
+                    aria-pressed={blend === mode.id}
+                  >
+                    {mode.label}
+                  </button>
+                ))}
+              </div>
               <div className="swatch-row">
                 {STUDIO_SWATCHES.map((swatch) => (
                   <button
-                    key={swatch}
+                    key={swatch.color}
                     type="button"
-                    className={`swatch ${color.toLowerCase() === swatch.toLowerCase() ? 'active' : ''} ${swatch.toUpperCase() === '#FFF9F0' ? 'light' : ''}`}
-                    style={{ background: swatch }}
-                    onClick={() => chooseColor(swatch)}
-                    aria-label={`Warna ${swatch}`}
+                    className={`swatch ${color.toLowerCase() === swatch.color.toLowerCase() ? 'active' : ''} ${swatch.name === 'Putih' ? 'light' : ''}`}
+                    style={{ background: swatch.color }}
+                    onClick={() => chooseColor(swatch.color)}
+                    aria-label={`Warna ${swatch.name}`}
+                    title={`${swatch.name} ${swatch.color}`}
                   />
                 ))}
               </div>
@@ -855,7 +1018,7 @@ export function DrawingStudio() {
         {confirmClose && (
           <div className="confirm-layer">
             <div className="confirm-card">
-              <div className="confirm-emoji">🎀</div>
+              <div className="confirm-emoji">🐟</div>
               <h3>Tinggalkan gambar?</h3>
               <p>Gambar yang belum dilepas akan hilang.</p>
               <div className="confirm-actions">

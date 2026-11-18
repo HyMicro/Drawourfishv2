@@ -4,8 +4,8 @@ import { FISH_TEMPLATE_IDS } from '../../shared/protocol';
 import { createId } from './utils';
 
 const OWNER_KEY = 'dyf:owner:v2';
-const COLLECTION_KEY = 'dyf:collection:v2';
-const ACTIVE_KEY = 'dyf:active:v2';
+const COLLECTION_KEY = 'dyf:collection:v3';
+const ACTIVE_KEY = 'dyf:active:v3';
 const MAX_COLLECTION = 30;
 
 function isFishEntity(value: unknown): value is FishEntity {
