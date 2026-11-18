@@ -27,7 +27,10 @@ export function AquariumCanvas() {
     });
     engineRef.current = engine;
     setEngine(engine);
-    void engine.init();
+    void engine.init().catch((error) => {
+      console.warn('[aquarium] WebGL init failed', error);
+      useGameStore.getState().addToast('Akuarium 3D belum bisa dimuat di perangkat ini.', 'warn');
+    });
     return () => {
       setEngine(null);
       engineRef.current = null;

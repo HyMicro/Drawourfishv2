@@ -47,7 +47,12 @@ class SoundKit {
       window.AudioContext ??
       (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     if (!AudioCtor) return;
-    const ctx = new AudioCtor();
+    let ctx: AudioContext;
+    try {
+      ctx = new AudioCtor();
+    } catch {
+      return;
+    }
     this.ctx = ctx;
     this.master = ctx.createGain();
     this.master.gain.value = this.muted ? 0 : 0.9;
