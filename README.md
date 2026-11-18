@@ -2,10 +2,10 @@
 
 **Draw Your Fish (Online Edition)** — anak menggambar ikan sendiri, lalu melepaskannya ke akuarium online bersama. Nama produk/deploy: **Draw Our Fish**. UI baru bergaya Sanrio: pastel, sticker, sederhana.
 
-**Live online (Cloudflare Workers):**
-**https://draw-our-fish.izzaahyad03.workers.dev**
+**Live online (Cloudflare Pages):**
+**https://drawourfish.pages.dev**
 
-Backend WebSocket online berjalan di Cloudflare Durable Object. Tidak perlu akun anak, tidak ada chat teks, tidak ada data pribadi.
+Frontend disajikan dari Cloudflare Pages; backend WebSocket berjalan di Cloudflare Worker + Durable Object. URL publik bebas nama akun. Tidak perlu akun anak, tidak ada chat teks, tidak ada data pribadi.
 
 ---
 
@@ -50,10 +50,10 @@ Backend WebSocket online berjalan di Cloudflare Durable Object. Tidak perlu akun
 | Grafik | PixiJS v8 WebGL (mesh 16 segmen, partikel, screenshot) |
 | State | Zustand |
 | Persistence | IndexedDB (`idb-keyval`) + localStorage |
-| Online | **Cloudflare Workers + Durable Objects + WebAssets** |
+| Online | **Cloudflare Pages (frontend) + Workers + Durable Objects (WebSocket)** |
 | Backend lokal/Docker | Node.js `ws` + Express (protokol sama) |
 | Audio | Web Audio API |
-| Deploy | `wrangler` (Cloudflare) / Docker opsional |
+| Deploy | `wrangler` (Cloudflare Pages + Workers) / Docker opsional |
 
 ---
 
@@ -81,17 +81,19 @@ npm start
 
 ```bash
 npx wrangler login
+
+# Backend Worker (Durable Object, /ws, /api/health)
 npm run build
 npm run deploy:cf
+
+# Frontend publik di Pages (drawourfish.pages.dev)
+npm run deploy:pages
 ```
 
-`wrangler.toml` sudah berisi:
-- Worker `draw-our-fish`
-- Durable Object `ReefRoom`
-- Static assets dari `dist/`
-- Routing `/ws` dan `/api/health`
+`wrangler.toml` berisi Worker `draw-our-fish`, Durable Object `ReefRoom`, static assets, dan `ALLOWED_ORIGINS` untuk Pages. Frontend Pages memakai `.env.pages` untuk WebSocket cross-origin dan `public/_headers` untuk CSP/security headers.
 
-Live: **https://draw-our-fish.izzaahyad03.workers.dev**
+Live publik: **https://drawourfish.pages.dev**  
+Backend Worker dipakai lewat WebSocket internal; URL frontend yang dibagikan tetap bersih.
 
 ---
 
@@ -129,9 +131,10 @@ Live: **https://draw-our-fish.izzaahyad03.workers.dev**
 - Rate limit pesan; payload WebSocket maks 150 KB.
 - Emote dibatasi 4 pilihan.
 - Nama ikan dibatasi huruf/angka/spasi/strip; karakter lain dibuang.
-- WebSocket memeriksa Origin (same-origin default). Frontend lintas domain bisa didaftarkan lewat `ALLOWED_ORIGINS` di `wrangler.toml`.
-- Cloudflare Worker mengirim CSP, HSTS, nosniff, Permissions-Policy, Referrer-Policy, dan frame protection.
+- WebSocket memeriksa Origin. `ALLOWED_ORIGINS` di `wrangler.toml` mengizinkan `https://drawourfish.pages.dev`; same-origin tetap diterima.
+- Cloudflare Worker & Pages mengirim CSP, HSTS, nosniff, Permissions-Policy, Referrer-Policy, dan frame protection.
 - CSP tanpa `unsafe-eval`; Pixi memakai polyfill `pixi.js/unsafe-eval` yang mengganti shader/uniform sync dengan implementasi tanpa-eval.
+- `_headers` di Pages membatasi `connect-src` ke Worker WebSocket yang tepat; perbarui bila URL backend berubah.
 - Cloudflare Durable Object menyimpan ruangan selama ada koneksi; data ikan hanya di memori ruangan (bukan storage permanen).
 
 ---
@@ -155,9 +158,10 @@ Hasil terakhir:
 - Flood fill **±1–10 ms** di desktop.
 - Bundle inti **±271 KB gzip** (JS) + 11 KB CSS.
 - Free-draw + 3 template baru + brush style diuji; tidak ada error konsol.
-- Deployment Cloudflare & protokol WebSocket online lolos uji.
-- Link undangan ruang `/?room=0123` otomatis join; header CSP/security aktif.
-- Origin WebSocket asing ditolak `403`, origin aplikasi diterima.
+- Deployment Cloudflare Pages + Worker & protokol WebSocket online lolos uji.
+- Link undangan ruang `/?room=0123` otomatis join di `drawourfish.pages.dev`.
+- Origin WebSocket asing ditolak `403`, origin Pages/Worker diterima.
+- Smoke test desktop & mobile di domain Pages: 0 error konsol.
 
 ---
 

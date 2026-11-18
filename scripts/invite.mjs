@@ -2,7 +2,7 @@ import { chromium } from 'playwright';
 
 const SEA_ICONS = ['🦀', '⭐', '🐙', '🐚', '🐠', '🪼', '🐬', '🦑'];
 
-const base = process.env.BASE_URL || 'https://draw-our-fish.izzaahyad03.workers.dev';
+const base = process.env.BASE_URL || 'https://drawourfish.pages.dev';
 const browser = await chromium.launch({ headless: false });
 const errors = [];
 const contextA = await browser.newContext({ viewport: { width: 1280, height: 800 } });

@@ -4,6 +4,7 @@ server/dist
 .env
 .env.*
 !.env.example
+!.env.pages
 *.log
 .DS_Store
 Thumbs.db
