@@ -18,3 +18,8 @@ new_sqlite_classes = ["ReefRoom"]
 
 [observability]
 enabled = true
+
+[vars]
+# Optional comma-separated extra browser origins for /ws (when the frontend
+# is hosted on a different domain). Same-origin is always allowed.
+# ALLOWED_ORIGINS = "https://frontend.example.com"

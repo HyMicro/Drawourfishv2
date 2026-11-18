@@ -21,7 +21,9 @@
     "test:offline": "node scripts/offline-persistence.mjs",
     "test:perf": "node scripts/perf.mjs",
     "test:interaction": "node scripts/interaction.mjs",
-    "test:responsive": "node scripts/responsive.mjs"
+    "test:responsive": "node scripts/responsive.mjs",
+    "test:invite": "node scripts/invite.mjs",
+    "test:origin": "node scripts/origin-check.mjs"
   },
   "dependencies": {
     "@fontsource-variable/fredoka": "^5.3.0",

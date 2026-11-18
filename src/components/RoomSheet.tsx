@@ -47,9 +47,14 @@ export function RoomSheet() {
 
   const copyCode = async () => {
     if (!room) return;
+    const indices = room.code
+      .map((icon) => (SEA_ICONS as readonly string[]).indexOf(icon))
+      .map((index) => (index >= 0 ? index : 0))
+      .join('');
+    const link = `${window.location.origin}/?room=${indices}`;
     try {
-      await navigator.clipboard.writeText(room.code.join(' '));
-      addToast('Kode ruang disalin. Kirim ke keluarga ya!', 'success');
+      await navigator.clipboard.writeText(link);
+      addToast('Link ruang disalin. Tinggal kirim ke keluarga!', 'success');
     } catch {
       addToast(`Kode ruang: ${room.code.join(' ')}`, 'info');
     }
@@ -102,13 +107,13 @@ export function RoomSheet() {
                   </span>
                 ))}
               </div>
-              <p>Bagikan 4 ikon ini. Tanpa chat, hanya ikan dan emote.</p>
+              <p>Bagikan link ruang ini. Tanpa chat, hanya ikan dan emote.</p>
               <div className="room-card-actions">
-                <button type="button" className="glass-btn" onClick={copyCode}>
-                  <Icon name="copy" size={20} /> Salin Kode
+                <button type="button" className="glass-btn primary" onClick={copyCode}>
+                  <Icon name="copy" size={19} /> Salin Link
                 </button>
                 <button type="button" className="glass-btn subtle" onClick={leaveRoom} disabled={joining}>
-                  <Icon name="globe" size={20} /> Kembali ke Ocean
+                  <Icon name="globe" size={19} /> Kembali ke Ocean
                 </button>
               </div>
             </div>

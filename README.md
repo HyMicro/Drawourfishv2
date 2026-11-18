@@ -28,6 +28,7 @@ Backend WebSocket online berjalan di Cloudflare Durable Object. Tidak perlu akun
 - Squid bergerak melayang (sprite), ikan lain berenang dengan mesh.
 - Pakan bersama, riak ketuk kaca, ikan penasaran 3 detik, emote (❤️ ✨ 🫧 🎵), dan long-press untuk menyembunyikan ikan.
 - Ruang publik otomatis (18 ikan/shards) dan **ruang privat 4 ikon**.
+- **Link undangan ruang**: tombol “Salin Link” membuat URL `/?room=0123` yang otomatis memasukkan keluarga ke ruang yang sama.
 - Sync 10 Hz + interpolasi; feed/tap/emote realtime.
 - Local Reef otomatis saat offline, dengan 4 ikan AI.
 - Dua ikan AI penghuni tampil saat ruangan sepi.
@@ -127,6 +128,10 @@ Live: **https://draw-our-fish.izzaahyad03.workers.dev**
 - Maks 18 ikan/ruangan, 14 koneksi/ruangan, 3 ikan/pemain.
 - Rate limit pesan; payload WebSocket maks 150 KB.
 - Emote dibatasi 4 pilihan.
+- Nama ikan dibatasi huruf/angka/spasi/strip; karakter lain dibuang.
+- WebSocket memeriksa Origin (same-origin default). Frontend lintas domain bisa didaftarkan lewat `ALLOWED_ORIGINS` di `wrangler.toml`.
+- Cloudflare Worker mengirim CSP, HSTS, nosniff, Permissions-Policy, Referrer-Policy, dan frame protection.
+- CSP tanpa `unsafe-eval`; Pixi memakai polyfill `pixi.js/unsafe-eval` yang mengganti shader/uniform sync dengan implementasi tanpa-eval.
 - Cloudflare Durable Object menyimpan ruangan selama ada koneksi; data ikan hanya di memori ruangan (bukan storage permanen).
 
 ---
@@ -141,14 +146,18 @@ npm run test:interaction   # tap emote & long-press hide
 npm run test:responsive    # iPad, ponsel kecil, landscape
 npm run test:perf          # 18 ikan, FPS
 npm run test:smoke         # screenshot alur utama
+npm run test:invite        # link undangan ?room= otomatis join
+npm run test:origin        # origin WebSocket ditolak/diizinkan
 ```
 
 Hasil terakhir:
 - 18 ikan aktif = **60 FPS** di Chromium desktop.
 - Flood fill **±1–10 ms** di desktop.
-- Bundle inti **±267 KB gzip** (JS) + 11 KB CSS.
+- Bundle inti **±271 KB gzip** (JS) + 11 KB CSS.
 - Free-draw + 3 template baru + brush style diuji; tidak ada error konsol.
 - Deployment Cloudflare & protokol WebSocket online lolos uji.
+- Link undangan ruang `/?room=0123` otomatis join; header CSP/security aktif.
+- Origin WebSocket asing ditolak `403`, origin aplikasi diterima.
 
 ---
 

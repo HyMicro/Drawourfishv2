@@ -56,8 +56,12 @@ function clamp01(value: unknown, fallback = 0.5): number {
 
 function sanitizeName(raw: unknown): string {
   if (typeof raw !== 'string') return 'Fish';
-  const cleaned = raw.replace(/[<>&"'`\\]/g, '').replace(/\s+/g, ' ').trim();
-  return cleaned.slice(0, MAX_NAME) || 'Fish';
+  const cleaned = raw
+    .replace(/[^\p{L}\p{N} '\-]/gu, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, MAX_NAME);
+  return cleaned || 'Fish';
 }
 
 function readWebpSize(bytes: Uint8Array): { width: number; height: number } | null {

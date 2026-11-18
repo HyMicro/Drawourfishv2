@@ -1,3 +1,7 @@
+// Pixi's default uniform/shader sync uses `new Function`. This official
+// polyfill swaps in eval-free implementations so the app can run under a
+// strict CSP (script-src 'self', no unsafe-eval).
+import 'pixi.js/unsafe-eval';
 import {
   Application,
   Container,

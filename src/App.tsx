@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { AquariumCanvas } from './components/AquariumCanvas';
 import { CollectionSheet } from './components/CollectionSheet';
 import { DrawingStudio } from './components/DrawingStudio';
@@ -13,6 +13,7 @@ import { getEngine } from './aquarium/bridge';
 import { sound } from './lib/audio';
 import { network } from './net/client';
 import { useGameStore } from './store/useGameStore';
+import { SEA_ICONS } from '../shared/protocol';
 
 export default function App() {
   const ready = useGameStore((state) => state.ready);
@@ -21,8 +22,14 @@ export default function App() {
   const roomOpen = useGameStore((state) => state.roomOpen);
   const photoOpen = useGameStore((state) => state.photoOpen);
   const onboardingOpen = useGameStore((state) => state.onboardingOpen);
+  const pendingRoomRef = useRef<string[] | null>(null);
 
   useEffect(() => {
+    const roomParam = new URLSearchParams(window.location.search).get('room');
+    if (roomParam && /^[0-7]{4}$/.test(roomParam)) {
+      pendingRoomRef.current = roomParam.split('').map((index) => SEA_ICONS[Number(index)]);
+    }
+
     network.configure({
       onStatus: (status) => {
         const store = useGameStore.getState();
@@ -40,6 +47,11 @@ export default function App() {
             store.applySnapshot(message.room, message.fishes, message.clientId, message.onlineCount);
             if (message.room.kind === 'private' && previous?.id !== message.room.id) {
               store.addToast(`Ruang keluarga siap! ${message.room.code.join(' ')}`, 'success');
+            }
+            if (pendingRoomRef.current) {
+              const code = pendingRoomRef.current;
+              pendingRoomRef.current = null;
+              network.joinPrivateRoom(code);
             }
             break;
           }
