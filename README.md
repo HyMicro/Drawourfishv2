@@ -93,7 +93,7 @@ npm run deploy:pages
 `wrangler.toml` berisi Worker `draw-our-fish`, Durable Object `ReefRoom`, static assets, dan `ALLOWED_ORIGINS` untuk Pages. Frontend Pages memakai `.env.pages` untuk WebSocket cross-origin dan `public/_headers` untuk CSP/security headers.
 
 Live publik: **https://drawourfish.pages.dev**  
-Backend Worker dipakai lewat WebSocket internal; URL frontend yang dibagikan tetap bersih.
+Backend Worker dipakai lewat WebSocket internal; URL frontend yang dibagikan tetap bersih. URL Worker lama otomatis **302 redirect** ke domain Pages ini, jadi alamat dengan nama akun tidak lagi menjadi alamat aplikasi.
 
 ---
 

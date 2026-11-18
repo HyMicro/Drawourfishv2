@@ -85,6 +85,12 @@ export default {
       return env.REEF.get(id).fetch(request);
     }
 
+    // The public app lives at the clean Pages URL. Keep the workers.dev
+    // hostname as an internal backend only and redirect stray visitors.
+    if (url.hostname.endsWith('.workers.dev')) {
+      return Response.redirect(`https://drawourfish.pages.dev${url.pathname}${url.search}`, 302);
+    }
+
     const assetResponse = await env.ASSETS.fetch(request);
     const contentType = assetResponse.headers.get('content-type') ?? '';
     return contentType.includes('text/html') ? secure(assetResponse) : assetResponse;
