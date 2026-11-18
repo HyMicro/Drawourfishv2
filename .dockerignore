@@ -1,0 +1,12 @@
+node_modules
+dist
+server/dist
+.git
+.gitignore
+*.log
+README.md
+render.yaml
+Procfile
+scripts
+.vscode
+.idea
