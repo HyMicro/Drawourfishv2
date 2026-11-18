@@ -8,3 +8,6 @@ server/dist
 .DS_Store
 Thumbs.db
 .vite
+.wrangler
+.dev.vars
+

@@ -15,17 +15,18 @@ page.on('console', (message) => {
 });
 
 await page.goto(base, { waitUntil: 'networkidle' });
-await page.waitForSelector('.create-fab');
+await page.waitForSelector('.onboarding-card, .draw-fab');
 if (await page.locator('.onboarding-card').isVisible().catch(() => false)) {
   await page.getByRole('button', { name: 'Gambar Ikan Pertamaku' }).click();
 } else {
-  await page.locator('.create-fab').click();
+  await page.waitForSelector('.draw-fab');
+  await page.locator('.draw-fab').click();
 }
 await page.waitForSelector('.studio-panel');
 const box = await page.locator('.drawing-canvas').boundingBox();
-await page.locator('.swatch').nth(9).click();
-await page.locator('.tool-button').filter({ hasText: 'Ember' }).click();
-await page.locator('.swatch').nth(7).click();
+await page.locator('.swatch').nth(2).click();
+await page.locator('.tool-chip').filter({ hasText: 'Ember' }).click();
+await page.locator('.swatch').nth(5).click();
 await page.mouse.click(box.x + box.width * 0.53, box.y + box.height * 0.56);
 await page.waitForTimeout(350);
 await page.locator('.name-pill input').fill('Pip Persist');
@@ -57,13 +58,13 @@ console.log('SW_STATE', JSON.stringify(swState, null, 2));
 
 // Reload online: fish should come back from IndexedDB.
 await page.reload({ waitUntil: 'networkidle' });
-await page.waitForSelector('.create-fab');
+await page.waitForSelector('.draw-fab');
 await page.waitForTimeout(1500);
+const fishCount = await page.locator('.fish-count').innerText();
 await page.locator('.dock-item').filter({ hasText: 'Ikanku' }).click();
 await page.waitForSelector('.collection-panel');
 const cards = await page.locator('.fish-card').count();
 const fishName = await page.locator('.fish-card-title strong').first().innerText().catch(() => null);
-const fishCount = await page.locator('.room-chip-count').innerText();
 console.log('PERSISTENCE', JSON.stringify({ cards, fishName, fishCount }));
 await page.screenshot({ path: path.join(outDir, '01-persisted.png') });
 await page.locator('.collection-panel .sheet-header .icon-btn').click();
@@ -84,15 +85,15 @@ await page.waitForTimeout(400);
 // Local Reef with resident fish and no technical error modal.
 await context.setOffline(true);
 await page.reload({ waitUntil: 'domcontentloaded', timeout: 20000 });
-await page.waitForSelector('.create-fab', { timeout: 20000 });
+await page.waitForSelector('.draw-fab', { timeout: 20000 });
 await page.waitForFunction(
-  () => document.querySelector('.room-chip-label')?.textContent === 'Local Reef',
+  () => document.querySelector('.room-label')?.textContent === 'Local Reef',
   null,
   { timeout: 20000 },
 );
 await page.waitForTimeout(1200);
-const offlineReloadLabel = await page.locator('.room-chip-label').innerText();
-const offlineCount = await page.locator('.room-chip-count').innerText();
+const offlineReloadLabel = await page.locator('.room-label').innerText();
+const offlineCount = await page.locator('.fish-count').innerText();
 const technicalToasts = await page.locator('.toast').filter({ hasText: /error|failed|websocket|gagal|error teknis/i }).count();
 console.log('OFFLINE_RELOAD', JSON.stringify({ offlineReloadLabel, offlineCount, technicalToasts }));
 await page.screenshot({ path: path.join(outDir, '04-offline-reload.png') });

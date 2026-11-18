@@ -20,7 +20,7 @@ export function Hud() {
   const roomLabel = room
     ? room.kind === 'private'
       ? room.code.join(' ')
-      : room.label
+      : 'Ocean'
     : connection === 'offline'
       ? 'Local Reef'
       : 'Menyambung…';
@@ -32,87 +32,77 @@ export function Hud() {
       return;
     }
     const dropped = engine.spawnFeeding();
-    for (const pellet of dropped) {
-      network.dropFeed(pellet.id, pellet.x, pellet.y);
-    }
+    for (const pellet of dropped) network.dropFeed(pellet.id, pellet.x, pellet.y);
   };
 
   return (
     <>
       <header className="hud-top">
-        <div className="brand glass-chip">
+        <div className="brand">
           <span className="brand-mark">
-            <Icon name="fish" size={30} />
+            <Icon name="fish" size={27} />
           </span>
           <div className="brand-copy">
             <strong>Draw Our Fish</strong>
-            <span>Shared Live Reef</span>
+            <span>little ocean club</span>
           </div>
         </div>
 
         <div className="top-actions">
-          <button
-            type="button"
-            className="room-chip glass-chip"
-            onClick={openRoom}
-            aria-label="Buka ruang bersama"
-          >
+          <button type="button" className="room-pill" onClick={openRoom} aria-label="Buka ruang bersama">
             <span className={`status-dot ${connection}`} aria-hidden="true" />
-            <span className="room-chip-label">{roomLabel}</span>
-            <span className="room-chip-count">
-              <Icon name="fish" size={15} /> {fishCount}
+            <span className="room-label">{roomLabel}</span>
+            <span className="fish-count">
+              <Icon name="fish" size={13} />
+              {fishCount}
             </span>
           </button>
           <button
             type="button"
-            className="glass-btn icon-btn sound-btn"
+            className="round-btn sound-btn"
             onClick={toggleMute}
             aria-label={muted ? 'Nyalakan suara' : 'Matikan suara'}
           >
-            <Icon name={muted ? 'volume-off' : 'volume'} size={25} />
+            <Icon name={muted ? 'volume-off' : 'volume'} size={21} />
           </button>
         </div>
       </header>
 
-      <div className="hud-hint">
-        <Icon name="sparkles" size={15} />
-        <span>Ketuk ikan untuk menyapa · tahan 2 detik untuk menu</span>
-      </div>
-
       <nav className="dock-shell" aria-label="Kontrol utama">
-        <div className="dock glass-panel">
-          <button type="button" className="dock-item" onClick={openRoom}>
-            <span className="dock-icon">
-              <Icon name="users" size={26} />
-              {connection === 'offline' && <span className="tiny-badge">!</span>}
-            </span>
-            <span>Ruang</span>
-          </button>
+        <div className="dock">
           <button type="button" className="dock-item" onClick={openCollection}>
             <span className="dock-icon">
-              <Icon name="book" size={26} />
+              <Icon name="book" size={23} />
               <span className="count-badge">{activeIds.length}/3</span>
             </span>
             <span>Ikanku</span>
           </button>
-
-          <button type="button" className="create-fab" onClick={openStudio} aria-label="Gambar ikan baru">
-            <span className="fab-glow" aria-hidden="true" />
-            <Icon name="plus" size={38} />
-            <span>Gambar Ikan</span>
-          </button>
-
           <button type="button" className="dock-item" onClick={feed}>
             <span className="dock-icon">
-              <Icon name="feed" size={26} />
+              <Icon name="feed" size={23} />
             </span>
             <span>Pakan</span>
           </button>
+
+          <button type="button" className="draw-fab" onClick={openStudio} aria-label="Gambar ikan baru">
+            <span className="draw-fab-icon">
+              <Icon name="plus" size={27} />
+            </span>
+            <span>Gambar</span>
+          </button>
+
           <button type="button" className="dock-item" onClick={openPhoto}>
             <span className="dock-icon">
-              <Icon name="camera" size={26} />
+              <Icon name="camera" size={23} />
             </span>
             <span>Foto</span>
+          </button>
+          <button type="button" className="dock-item" onClick={openRoom}>
+            <span className="dock-icon">
+              <Icon name="users" size={23} />
+              {connection === 'offline' && <span className="tiny-badge">!</span>}
+            </span>
+            <span>Ruang</span>
           </button>
         </div>
       </nav>

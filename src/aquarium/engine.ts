@@ -252,29 +252,29 @@ export class AquariumEngine {
     if (!ctx) return;
 
     const gradient = ctx.createLinearGradient(0, 0, 0, height);
-    gradient.addColorStop(0, '#04243d');
-    gradient.addColorStop(0.32, '#063f59');
-    gradient.addColorStop(0.68, '#086171');
-    gradient.addColorStop(1, '#0a7a78');
+    gradient.addColorStop(0, '#c8f7ff');
+    gradient.addColorStop(0.32, '#88e5ef');
+    gradient.addColorStop(0.68, '#4cc5d3');
+    gradient.addColorStop(1, '#26a9ba');
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, width, height);
 
     const sun = ctx.createRadialGradient(width * 0.68, -height * 0.12, 20, width * 0.68, -height * 0.12, height * 0.85);
-    sun.addColorStop(0, 'rgba(196, 246, 255, 0.5)');
-    sun.addColorStop(0.35, 'rgba(120, 218, 236, 0.14)');
-    sun.addColorStop(1, 'rgba(120, 218, 236, 0)');
+    sun.addColorStop(0, 'rgba(255, 255, 255, 0.72)');
+    sun.addColorStop(0.35, 'rgba(255, 248, 225, 0.28)');
+    sun.addColorStop(1, 'rgba(255, 248, 225, 0)');
     ctx.fillStyle = sun;
     ctx.fillRect(0, 0, width, height);
 
-    // Caustic light patches.
+    // Soft caustic light patches.
     ctx.globalCompositeOperation = 'screen';
     for (let i = 0; i < 12; i++) {
       const x = (Math.sin(i * 12.9898) * 0.5 + 0.5) * width;
       const y = (Math.sin(i * 78.233) * 0.5 + 0.5) * height * 0.52;
       const r = 60 + ((i * 47) % 130);
       const glow = ctx.createRadialGradient(x, y, 0, x, y, r);
-      glow.addColorStop(0, 'rgba(157, 244, 255, 0.05)');
-      glow.addColorStop(1, 'rgba(157, 244, 255, 0)');
+      glow.addColorStop(0, 'rgba(255, 255, 255, 0.16)');
+      glow.addColorStop(1, 'rgba(255, 255, 255, 0)');
       ctx.fillStyle = glow;
       ctx.beginPath();
       ctx.arc(x, y, r, 0, Math.PI * 2);
@@ -282,16 +282,16 @@ export class AquariumEngine {
     }
     ctx.globalCompositeOperation = 'source-over';
 
-    // Distant reef silhouettes (ambient, not editable aquascaping).
-    const reefColors = ['rgba(3, 38, 51, 0.32)', 'rgba(2, 27, 41, 0.48)', 'rgba(2, 22, 34, 0.65)'];
+    // Pastel reef hills, echoing a soft storybook illustration.
+    const reefColors = ['rgba(255, 186, 208, 0.3)', 'rgba(143, 226, 205, 0.26)', 'rgba(255, 218, 164, 0.3)'];
     for (let layer = 0; layer < 3; layer++) {
       ctx.fillStyle = reefColors[layer];
       ctx.beginPath();
-      const baseY = height * (0.83 + layer * 0.055);
+      const baseY = height * (0.82 + layer * 0.055);
       ctx.moveTo(0, height);
       ctx.lineTo(0, baseY);
       for (let x = 0; x <= width; x += 28) {
-        const bump = Math.sin(x * 0.014 + layer * 2.4) * 18 + Math.sin(x * 0.006 + layer) * 26;
+        const bump = Math.sin(x * 0.014 + layer * 2.4) * 16 + Math.sin(x * 0.006 + layer) * 22;
         ctx.lineTo(x, baseY + bump);
       }
       ctx.lineTo(width, height);
@@ -299,12 +299,32 @@ export class AquariumEngine {
       ctx.fill();
     }
 
-    // A few soft coral silhouettes.
-    const coral = (x: number, y: number, size: number, alpha: number) => {
+    // A soft sandy bottom.
+    ctx.fillStyle = 'rgba(255, 236, 208, 0.75)';
+    ctx.beginPath();
+    ctx.moveTo(0, height);
+    ctx.lineTo(0, height * 0.94);
+    for (let x = 0; x <= width; x += 32) {
+      ctx.lineTo(x, height * 0.94 + Math.sin(x * 0.008) * 12 + Math.sin(x * 0.021) * 5);
+    }
+    ctx.lineTo(width, height);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255, 183, 200, 0.5)';
+    for (let i = 0; i < 14; i++) {
+      const x = (i * 97 + 40) % width;
+      const y = height * 0.965 + (i % 3) * 8;
+      ctx.beginPath();
+      ctx.arc(x, y, 2 + (i % 2), 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Whimsical coral doodles.
+    const coral = (x: number, y: number, size: number, color: string) => {
       ctx.save();
-      ctx.strokeStyle = `rgba(2, 24, 36, ${alpha})`;
+      ctx.strokeStyle = color;
       ctx.lineCap = 'round';
-      ctx.lineWidth = size * 0.12;
+      ctx.lineWidth = size * 0.13;
       ctx.beginPath();
       ctx.moveTo(x, y);
       ctx.quadraticCurveTo(x - size * 0.1, y - size * 0.5, x - size * 0.02, y - size);
@@ -315,9 +335,37 @@ export class AquariumEngine {
       ctx.stroke();
       ctx.restore();
     };
-    coral(width * 0.11, height * 0.98, 130, 0.5);
-    coral(width * 0.89, height * 0.99, 110, 0.45);
-    coral(width * 0.77, height * 0.97, 70, 0.4);
+    coral(width * 0.11, height * 0.98, 120, 'rgba(255, 143, 177, 0.55)');
+    coral(width * 0.89, height * 0.99, 100, 'rgba(255, 163, 191, 0.48)');
+    coral(width * 0.77, height * 0.97, 64, 'rgba(255, 212, 154, 0.55)');
+    coral(width * 0.27, height * 0.975, 54, 'rgba(126, 211, 198, 0.45)');
+
+    // Tiny hearts and stars floating in the water.
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+    for (let i = 0; i < 9; i++) {
+      const x = (Math.sin(i * 31.7) * 0.5 + 0.5) * width;
+      const y = (0.12 + (i * 0.083) % 0.55) * height;
+      const s = 3 + (i % 3) * 2;
+      if (i % 2 === 0) {
+        ctx.beginPath();
+        ctx.arc(x - s * 0.45, y, s * 0.55, Math.PI, 0);
+        ctx.arc(x + s * 0.45, y, s * 0.55, Math.PI, 0);
+        ctx.lineTo(x, y + s * 0.9);
+        ctx.closePath();
+        ctx.fill();
+      } else {
+        ctx.beginPath();
+        for (let p = 0; p < 5; p++) {
+          const angle = -Math.PI / 2 + (p * Math.PI * 4) / 5;
+          const px = x + Math.cos(angle) * s;
+          const py = y + Math.sin(angle) * s;
+          if (p === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        ctx.fill();
+      }
+    }
 
     if (this.backgroundSprite) {
       this.app.stage.removeChild(this.backgroundSprite);

@@ -1,5 +1,5 @@
 /* Draw Our Fish — offline shell + runtime asset cache. */
-const VERSION = 'dyf-v2.0.2';
+const VERSION = 'dyf-v2.1.1';
 const SHELL = `${VERSION}-shell`;
 const RUNTIME = `${VERSION}-runtime`;
 const SHELL_URLS = [

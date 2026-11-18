@@ -1,24 +1,197 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FishTemplate } from '../data/templates';
-import { PALETTE, TEMPLATES, TEMPLATE_MAP } from '../data/templates';
-import { drawFishArt, exportFishTexture, templatePath } from '../lib/fishArt';
+import { STUDIO_SWATCHES, TEMPLATES, TEMPLATE_MAP } from '../data/templates';
+import { drawFishArt, exportFishTexture, exportFreeFish, rgba, templatePath } from '../lib/fishArt';
 import { sound } from '../lib/audio';
-import { createId, randomBetween } from '../lib/utils';
+import { createId, hslToHex, hueFromHex, randomBetween } from '../lib/utils';
 import { normalizeFishName, randomFishName } from '../lib/names';
 import { useGameStore } from '../store/useGameStore';
 import type { FishEntity, FishTemplateId } from '../../shared/protocol';
-import { Icon } from './Icon';
+import { Icon, type IconName } from './Icon';
 import { TemplatePreview } from './TemplatePreview';
 
 const SIZE = 640;
 const MAX_HISTORY = 15;
-const BRUSH_SIZES = [
-  { label: 'Tipis', value: 14 },
-  { label: 'Sedang', value: 30 },
-  { label: 'Tebal', value: 54 },
-];
+const FREE_ID: FishTemplateId = 'free';
+const TOOL_SIZES = { min: 6, max: 64 };
 
 type Tool = 'brush' | 'fill' | 'eraser';
+type BrushStyle = 'marker' | 'pencil' | 'crayon' | 'airbrush';
+
+const BRUSH_STYLES: Array<{ id: BrushStyle; label: string; icon: IconName }> = [
+  { id: 'marker', label: 'Spidol', icon: 'marker' },
+  { id: 'pencil', label: 'Pensil', icon: 'pencil' },
+  { id: 'crayon', label: 'Krayon', icon: 'crayon' },
+  { id: 'airbrush', label: 'Semprot', icon: 'spray' },
+];
+
+function traceStroke(ctx: CanvasRenderingContext2D, a: { x: number; y: number }, b: { x: number; y: number }, c: { x: number; y: number }) {
+  ctx.beginPath();
+  ctx.moveTo(a.x, a.y);
+  ctx.quadraticCurveTo(b.x, b.y, c.x, c.y);
+}
+
+function pointOnCurve(a: { x: number; y: number }, b: { x: number; y: number }, c: { x: number; y: number }, t: number) {
+  const mt = 1 - t;
+  return {
+    x: mt * mt * a.x + 2 * mt * t * b.x + t * t * c.x,
+    y: mt * mt * a.y + 2 * mt * t * b.y + t * t * c.y,
+  };
+}
+
+function airbrushStamp(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, color: string) {
+  const radius = Math.max(3, size * 0.9);
+  const gradient = ctx.createRadialGradient(x, y, 0, x, y, radius);
+  gradient.addColorStop(0, rgba(color, 0.95));
+  gradient.addColorStop(0.45, rgba(color, 0.4));
+  gradient.addColorStop(1, rgba(color, 0));
+  ctx.fillStyle = gradient;
+  ctx.beginPath();
+  ctx.arc(x, y, radius, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function paintDot(
+  ctx: CanvasRenderingContext2D,
+  point: { x: number; y: number },
+  size: number,
+  color: string,
+  style: BrushStyle,
+) {
+  ctx.save();
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.fillStyle = color;
+  if (style === 'airbrush') {
+    ctx.globalAlpha = 0.2;
+    airbrushStamp(ctx, point.x, point.y, size, color);
+    airbrushStamp(ctx, point.x, point.y, size * 0.7, color);
+  } else if (style === 'pencil') {
+    ctx.globalAlpha = 0.85;
+    ctx.beginPath();
+    ctx.arc(point.x, point.y, Math.max(1, size * 0.22), 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 0.3;
+    for (let i = 0; i < 3; i++) {
+      ctx.fillRect(point.x + randomBetween(-size * 0.5, size * 0.5), point.y + randomBetween(-size * 0.5, size * 0.5), 1, 1);
+    }
+  } else if (style === 'crayon') {
+    ctx.globalAlpha = 0.45;
+    for (let i = 0; i < 5; i++) {
+      ctx.beginPath();
+      ctx.arc(point.x + randomBetween(-size * 0.35, size * 0.35), point.y + randomBetween(-size * 0.35, size * 0.35), size * 0.2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  } else {
+    ctx.globalAlpha = 0.96;
+    ctx.beginPath();
+    ctx.arc(point.x, point.y, Math.max(2, size / 2), 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+function paintSegment(
+  ctx: CanvasRenderingContext2D,
+  from: { x: number; y: number },
+  control: { x: number; y: number },
+  to: { x: number; y: number },
+  size: number,
+  color: string,
+  style: BrushStyle,
+) {
+  ctx.save();
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.strokeStyle = color;
+  ctx.fillStyle = color;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  if (style === 'airbrush') {
+    const steps = Math.max(3, Math.ceil(Math.hypot(to.x - from.x, to.y - from.y) / Math.max(4, size * 0.35)));
+    ctx.globalAlpha = 0.15;
+    for (let i = 0; i <= steps; i++) {
+      const point = pointOnCurve(from, control, to, i / steps);
+      airbrushStamp(ctx, point.x, point.y, size, color);
+    }
+  } else if (style === 'pencil') {
+    ctx.lineWidth = Math.max(1.2, size * 0.42);
+    ctx.globalAlpha = 0.62;
+    traceStroke(ctx, from, control, to);
+    ctx.stroke();
+    ctx.globalAlpha = 0.24;
+    ctx.lineWidth = Math.max(1, size * 0.18);
+    ctx.save();
+    ctx.translate(1.4, -1.2);
+    traceStroke(ctx, from, control, to);
+    ctx.stroke();
+    ctx.restore();
+    ctx.save();
+    ctx.translate(-1.2, 1.6);
+    traceStroke(ctx, from, control, to);
+    ctx.stroke();
+    ctx.restore();
+    ctx.globalAlpha = 0.35;
+    for (let i = 0; i < 2; i++) {
+      const point = pointOnCurve(from, control, to, Math.random());
+      ctx.fillRect(point.x + randomBetween(-3, 3), point.y + randomBetween(-3, 3), 1.2, 1.2);
+    }
+  } else if (style === 'crayon') {
+    ctx.globalAlpha = 0.34;
+    ctx.lineWidth = Math.max(2, size * 0.9);
+    traceStroke(ctx, from, control, to);
+    ctx.stroke();
+    ctx.globalAlpha = 0.22;
+    ctx.lineWidth = Math.max(1.5, size * 0.5);
+    ctx.save();
+    ctx.translate(2.4, 1.8);
+    traceStroke(ctx, from, control, to);
+    ctx.stroke();
+    ctx.restore();
+    ctx.globalAlpha = 0.38;
+    const dots = Math.max(3, Math.ceil(size / 8));
+    for (let i = 0; i < dots; i++) {
+      const point = pointOnCurve(from, control, to, Math.random());
+      ctx.beginPath();
+      ctx.arc(point.x + randomBetween(-size * 0.45, size * 0.45), point.y + randomBetween(-size * 0.45, size * 0.45), Math.max(0.8, size * 0.08), 0, Math.PI * 2);
+      ctx.fill();
+    }
+  } else {
+    ctx.lineWidth = Math.max(2, size);
+    ctx.globalAlpha = 0.97;
+    traceStroke(ctx, from, control, to);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function eraseDot(ctx: CanvasRenderingContext2D, point: { x: number; y: number }, size: number) {
+  ctx.save();
+  ctx.globalCompositeOperation = 'destination-out';
+  ctx.fillStyle = '#000';
+  ctx.beginPath();
+  ctx.arc(point.x, point.y, Math.max(2, size / 2), 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+function eraseSegment(
+  ctx: CanvasRenderingContext2D,
+  from: { x: number; y: number },
+  control: { x: number; y: number },
+  to: { x: number; y: number },
+  size: number,
+) {
+  ctx.save();
+  ctx.globalCompositeOperation = 'destination-out';
+  ctx.strokeStyle = '#000';
+  ctx.fillStyle = '#000';
+  ctx.lineWidth = Math.max(2, size);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  traceStroke(ctx, from, control, to);
+  ctx.stroke();
+  ctx.restore();
+}
 
 function hexToRgba(hex: string): [number, number, number, number] {
   const clean = hex.replace('#', '');
@@ -32,10 +205,13 @@ export function DrawingStudio() {
   const addToast = useGameStore((state) => state.addToast);
   const ownerId = useGameStore((state) => state.ownerId);
 
-  const [templateId, setTemplateId] = useState<FishTemplateId>(() => TEMPLATES[Math.floor(Math.random() * TEMPLATES.length)].id);
+  const [templateId, setTemplateId] = useState<FishTemplateId>('goldfish');
   const template = TEMPLATE_MAP[templateId];
-  const [color, setColor] = useState<string>(PALETTE[0].color);
+  const isFree = templateId === FREE_ID;
+  const [color, setColor] = useState('#FF7DA8');
+  const [hue, setHue] = useState(() => hueFromHex('#FF7DA8'));
   const [tool, setTool] = useState<Tool>('brush');
+  const [brushStyle, setBrushStyle] = useState<BrushStyle>('marker');
   const [brushSize, setBrushSize] = useState(30);
   const [name, setName] = useState(randomFishName);
   const [canUndo, setCanUndo] = useState(false);
@@ -56,10 +232,12 @@ export function DrawingStudio() {
   const stageRef = useRef<HTMLDivElement>(null);
   const cursorRef = useRef<HTMLDivElement>(null);
   const templateRef = useRef<FishTemplate>(template);
+  const freeRef = useRef(isFree);
   templateRef.current = template;
+  freeRef.current = isFree;
 
-  const paintContext = () =>
-    paintRef.current?.getContext('2d', { willReadFrequently: true }) ?? null;
+  const paintContext = () => paintRef.current?.getContext('2d', { willReadFrequently: true }) ?? null;
+
   const render = useCallback(() => {
     const canvas = canvasRef.current;
     const paint = paintRef.current;
@@ -68,6 +246,10 @@ export function DrawingStudio() {
     if (!ctx) return;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, SIZE, SIZE);
+    if (freeRef.current) {
+      ctx.drawImage(paint, 0, 0, SIZE, SIZE);
+      return;
+    }
     drawFishArt(ctx, templateRef.current, SIZE, {
       paint,
       paintSize: SIZE,
@@ -92,6 +274,10 @@ export function DrawingStudio() {
     if (!ctx) return;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, SIZE, SIZE);
+    if (freeRef.current) {
+      maskDataRef.current = null;
+      return;
+    }
     ctx.save();
     const scale = SIZE / 1024;
     ctx.scale(scale, scale);
@@ -106,13 +292,13 @@ export function DrawingStudio() {
     if (!ctx) return;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = 1;
     ctx.clearRect(0, 0, SIZE, SIZE);
     historyRef.current = [];
     setCanUndo(false);
     scheduleRender();
   }, [scheduleRender]);
 
-  // One-time canvas setup.
   useEffect(() => {
     const display = canvasRef.current;
     if (!display) return;
@@ -129,7 +315,7 @@ export function DrawingStudio() {
     mask.height = SIZE;
     maskRef.current = mask;
 
-    templateRef.current = template;
+    freeRef.current = template.free === true;
     rebuildMask();
     resetPaint();
     render();
@@ -140,14 +326,13 @@ export function DrawingStudio() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Template changes clear the canvas, like turning over a fresh cut-out.
   const firstTemplate = useRef(true);
   useEffect(() => {
     if (firstTemplate.current) {
       firstTemplate.current = false;
       return;
     }
-    templateRef.current = template;
+    freeRef.current = template.free === true;
     rebuildMask();
     resetPaint();
   }, [template, rebuildMask, resetPaint]);
@@ -156,9 +341,8 @@ export function DrawingStudio() {
     const ctx = paintContext();
     if (!ctx) return;
     const snapshot = ctx.getImageData(0, 0, SIZE, SIZE);
-    const history = historyRef.current;
-    history.push(snapshot);
-    if (history.length > MAX_HISTORY) history.shift();
+    historyRef.current.push(snapshot);
+    if (historyRef.current.length > MAX_HISTORY) historyRef.current.shift();
     setCanUndo(true);
   }, []);
 
@@ -172,111 +356,94 @@ export function DrawingStudio() {
     };
   };
 
-  const configureBrush = useCallback(
-    (ctx: CanvasRenderingContext2D, currentTool: Tool, currentColor: string, size: number) => {
-      ctx.globalCompositeOperation = currentTool === 'eraser' ? 'destination-out' : 'source-over';
-      ctx.strokeStyle = currentTool === 'eraser' ? '#000000' : currentColor;
-      ctx.fillStyle = currentTool === 'eraser' ? '#000000' : currentColor;
-      ctx.lineWidth = size;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-    },
-    [],
-  );
+  const fill = useCallback((seedX: number, seedY: number, fillHex: string, free: boolean) => {
+    const ctx = paintContext();
+    if (!ctx) return false;
+    const mask = free ? null : maskDataRef.current;
+    if (!free && !mask) return false;
+    const x = Math.floor(seedX);
+    const y = Math.floor(seedY);
+    if (x < 1 || y < 1 || x >= SIZE - 1 || y >= SIZE - 1) return false;
+    if (mask && mask.data[(y * SIZE + x) * 4 + 3] < 80) return false;
 
-  const applyFloodFill = useCallback(
-    (seedX: number, seedY: number, fillHex: string) => {
-      const ctx = paintContext();
-      const mask = maskDataRef.current;
-      if (!ctx || !mask) return false;
-      const x = Math.floor(seedX);
-      const y = Math.floor(seedY);
-      if (x < 1 || y < 1 || x >= SIZE - 1 || y >= SIZE - 1) return false;
-      const maskAlpha = mask.data[(y * SIZE + x) * 4 + 3];
-      if (maskAlpha < 80) return false;
+    const image = ctx.getImageData(0, 0, SIZE, SIZE);
+    const data = image.data;
+    const seedIndex = (y * SIZE + x) * 4;
+    const target = [data[seedIndex], data[seedIndex + 1], data[seedIndex + 2], data[seedIndex + 3]];
+    const fillColor = hexToRgba(fillHex);
+    const tolerance = 48;
+    if (
+      Math.abs(target[0] - fillColor[0]) < 3 &&
+      Math.abs(target[1] - fillColor[1]) < 3 &&
+      Math.abs(target[2] - fillColor[2]) < 3 &&
+      Math.abs(target[3] - fillColor[3]) < 3
+    ) {
+      return false;
+    }
 
-      const image = ctx.getImageData(0, 0, SIZE, SIZE);
-      const data = image.data;
-      const seedIndex = (y * SIZE + x) * 4;
-      const target = [data[seedIndex], data[seedIndex + 1], data[seedIndex + 2], data[seedIndex + 3]];
-      const fill = hexToRgba(fillHex);
-      const tolerance = 46;
-      if (
-        Math.abs(target[0] - fill[0]) < 3 &&
-        Math.abs(target[1] - fill[1]) < 3 &&
-        Math.abs(target[2] - fill[2]) < 3 &&
-        Math.abs(target[3] - fill[3]) < 3
-      ) {
-        return false;
-      }
+    const matches = (index: number) => {
+      if (mask && mask.data[index + 3] < 70) return false;
+      return (
+        Math.abs(data[index] - target[0]) <= tolerance &&
+        Math.abs(data[index + 1] - target[1]) <= tolerance &&
+        Math.abs(data[index + 2] - target[2]) <= tolerance &&
+        Math.abs(data[index + 3] - target[3]) <= tolerance
+      );
+    };
 
-      const matches = (index: number) => {
-        if (mask.data[index + 3] < 70) return false;
-        return (
-          Math.abs(data[index] - target[0]) <= tolerance &&
-          Math.abs(data[index + 1] - target[1]) <= tolerance &&
-          Math.abs(data[index + 2] - target[2]) <= tolerance &&
-          Math.abs(data[index + 3] - target[3]) <= tolerance
-        );
-      };
+    const stack: number[] = [y * SIZE + x];
+    const visited = new Uint8Array(SIZE * SIZE);
+    let painted = 0;
+    let touchesEdge = false;
+    while (stack.length > 0) {
+      const index = stack.pop() as number;
+      const py = (index / SIZE) | 0;
+      const px = index % SIZE;
+      if (visited[index]) continue;
+      let left = px;
+      while (left >= 0 && matches((py * SIZE + left) * 4)) left--;
+      left++;
+      let spanUp = false;
+      let spanDown = false;
+      for (let cx = left; cx < SIZE && matches((py * SIZE + cx) * 4); cx++) {
+        const pixel = py * SIZE + cx;
+        if (visited[pixel]) break;
+        visited[pixel] = 1;
+        const pi = pixel * 4;
+        data[pi] = fillColor[0];
+        data[pi + 1] = fillColor[1];
+        data[pi + 2] = fillColor[2];
+        data[pi + 3] = fillColor[3];
+        painted++;
+        if (cx === 0 || py === 0 || cx === SIZE - 1 || py === SIZE - 1) touchesEdge = true;
 
-      const stack: number[] = [y * SIZE + x];
-      const visited = new Uint8Array(SIZE * SIZE);
-      let painted = 0;
-      while (stack.length > 0) {
-        const index = stack.pop() as number;
-        const py = (index / SIZE) | 0;
-        const px = index % SIZE;
-        if (visited[index]) continue;
-
-        let left = px;
-        while (left >= 0 && matches((py * SIZE + left) * 4)) left--;
-        left++;
-
-        let spanUp = false;
-        let spanDown = false;
-        for (let cx = left; cx < SIZE && matches((py * SIZE + cx) * 4); cx++) {
-          const pixel = py * SIZE + cx;
-          if (visited[pixel]) break;
-          visited[pixel] = 1;
-          const pi = pixel * 4;
-          data[pi] = fill[0];
-          data[pi + 1] = fill[1];
-          data[pi + 2] = fill[2];
-          data[pi + 3] = fill[3];
-          painted++;
-
-          if (py > 0) {
-            const up = (py - 1) * SIZE + cx;
-            const upMatch = !visited[up] && matches(up * 4);
-            if (upMatch && !spanUp) {
-              stack.push(up);
-              spanUp = true;
-            } else if (!upMatch) {
-              spanUp = false;
-            }
+        if (py > 0) {
+          const up = (py - 1) * SIZE + cx;
+          const upMatch = !visited[up] && matches(up * 4);
+          if (upMatch && !spanUp) {
+            stack.push(up);
+            spanUp = true;
+          } else if (!upMatch) {
+            spanUp = false;
           }
-          if (py < SIZE - 1) {
-            const down = (py + 1) * SIZE + cx;
-            const downMatch = !visited[down] && matches(down * 4);
-            if (downMatch && !spanDown) {
-              stack.push(down);
-              spanDown = true;
-            } else if (!downMatch) {
-              spanDown = false;
-            }
+        }
+        if (py < SIZE - 1) {
+          const down = (py + 1) * SIZE + cx;
+          const downMatch = !visited[down] && matches(down * 4);
+          if (downMatch && !spanDown) {
+            stack.push(down);
+            spanDown = true;
+          } else if (!downMatch) {
+            spanDown = false;
           }
         }
       }
-
-      if (painted > 0) {
-        ctx.putImageData(image, 0, 0);
-        return true;
-      }
-      return false;
-    },
-    [],
-  );
+    }
+    if (painted === 0) return false;
+    if (free && touchesEdge) return false;
+    ctx.putImageData(image, 0, 0);
+    return true;
+  }, []);
 
   const handlePointerDown = (event: React.PointerEvent<HTMLCanvasElement>) => {
     if (saving) return;
@@ -296,9 +463,7 @@ export function DrawingStudio() {
 
     if (tool === 'fill') {
       pushHistory();
-      const filled = applyFloodFill(point.x, point.y, color);
-      if (!filled) {
-        // Fill outside the fish is harmless: silently keep the artwork.
+      if (!fill(point.x, point.y, color, isFree)) {
         historyRef.current.pop();
         setCanUndo(historyRef.current.length > 0);
       } else {
@@ -311,27 +476,27 @@ export function DrawingStudio() {
     }
 
     pushHistory();
-    configureBrush(ctx, tool, color, brushSize);
-    ctx.beginPath();
-    ctx.arc(point.x, point.y, brushSize / 2, 0, Math.PI * 2);
-    ctx.fill();
+    if (tool === 'eraser') {
+      eraseDot(ctx, point, brushSize);
+    } else {
+      paintDot(ctx, point, brushSize, color, brushStyle);
+    }
     sound.brushStart();
     sound.brushMove(0.2);
     scheduleRender();
   };
 
   const handlePointerMove = (event: React.PointerEvent<HTMLCanvasElement>) => {
-    // Brush ring cursor.
     const canvas = canvasRef.current;
     const stage = stageRef.current;
     if (canvas && stage && cursorRef.current) {
       const rect = canvas.getBoundingClientRect();
       const stageRect = stage.getBoundingClientRect();
-      const dprSize = (brushSize / SIZE) * rect.width;
-      cursorRef.current.style.width = `${dprSize}px`;
-      cursorRef.current.style.height = `${dprSize}px`;
-      cursorRef.current.style.transform = `translate(${event.clientX - stageRect.left - dprSize / 2}px, ${
-        event.clientY - stageRect.top - dprSize / 2
+      const cursorSize = (brushSize / SIZE) * rect.width;
+      cursorRef.current.style.width = `${cursorSize}px`;
+      cursorRef.current.style.height = `${cursorSize}px`;
+      cursorRef.current.style.transform = `translate(${event.clientX - stageRect.left - cursorSize / 2}px, ${
+        event.clientY - stageRect.top - cursorSize / 2
       }px)`;
       cursorRef.current.style.opacity = tool === 'fill' ? '0' : '1';
     }
@@ -343,12 +508,12 @@ export function DrawingStudio() {
     if (distance < 0.6) return;
     const ctx = paintContext();
     if (!ctx) return;
-    configureBrush(ctx, tool, color, brushSize);
     const mid = { x: (last.x + point.x) / 2, y: (last.y + point.y) / 2 };
-    ctx.beginPath();
-    ctx.moveTo(midRef.current.x, midRef.current.y);
-    ctx.quadraticCurveTo(last.x, last.y, mid.x, mid.y);
-    ctx.stroke();
+    if (tool === 'eraser') {
+      eraseSegment(ctx, midRef.current, last, mid, brushSize);
+    } else {
+      paintSegment(ctx, midRef.current, last, mid, brushSize, color, brushStyle);
+    }
     midRef.current = mid;
     lastRef.current = point;
 
@@ -365,11 +530,11 @@ export function DrawingStudio() {
     if (drawingRef.current && tool !== 'fill') {
       const ctx = paintContext();
       if (ctx) {
-        configureBrush(ctx, tool, color, brushSize);
-        ctx.beginPath();
-        ctx.moveTo(midRef.current.x, midRef.current.y);
-        ctx.quadraticCurveTo(lastRef.current.x, lastRef.current.y, lastRef.current.x, lastRef.current.y);
-        ctx.stroke();
+        if (tool === 'eraser') {
+          eraseSegment(ctx, midRef.current, lastRef.current, lastRef.current, brushSize);
+        } else {
+          paintSegment(ctx, midRef.current, lastRef.current, lastRef.current, brushSize, color, brushStyle);
+        }
         scheduleRender();
       }
       sound.brushStop();
@@ -400,6 +565,7 @@ export function DrawingStudio() {
     if (!ctx) return;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = 1;
     ctx.clearRect(0, 0, SIZE, SIZE);
     sound.splash();
     scheduleRender();
@@ -408,6 +574,13 @@ export function DrawingStudio() {
   const changeTemplate = (id: FishTemplateId) => {
     if (id === templateId) return;
     setTemplateId(id);
+    sound.chime('soft');
+  };
+
+  const chooseColor = (next: string) => {
+    setColor(next);
+    setHue(hueFromHex(next));
+    if (tool === 'eraser') setTool('brush');
     sound.chime('soft');
   };
 
@@ -424,9 +597,9 @@ export function DrawingStudio() {
     sound.chime('bright');
     window.setTimeout(() => {
       try {
-        const exported = exportFishTexture(templateRef.current, paint);
+        const exported = isFree ? exportFreeFish(paint) : exportFishTexture(templateRef.current, paint);
         if (!exported.dataUrl || !exported.dataUrl.startsWith('data:image/')) {
-          addToast('Gambar belum bisa disimpan. Coba lagi ya.', 'warn');
+          addToast('Gambar ikanmu dulu ya, baru dilepas!', 'warn');
           setSaving(false);
           return;
         }
@@ -439,8 +612,8 @@ export function DrawingStudio() {
           textureData: exported.dataUrl,
           createdAt: Date.now(),
           transform: {
-            x: side ? 0.12 : 0.88,
-            y: randomBetween(0.28, 0.68),
+            x: side ? 0.14 : 0.86,
+            y: randomBetween(0.3, 0.66),
             targetX: side ? randomBetween(0.3, 0.8) : randomBetween(0.2, 0.7),
             targetY: randomBetween(0.3, 0.7),
             speed: 0.45,
@@ -459,11 +632,8 @@ export function DrawingStudio() {
   };
 
   const requestClose = () => {
-    if (canUndo) {
-      setConfirmClose(true);
-    } else {
-      closeStudio();
-    }
+    if (canUndo) setConfirmClose(true);
+    else closeStudio();
   };
 
   const cursorColor = useMemo(() => (tool === 'eraser' ? '#ffffff' : color), [tool, color]);
@@ -475,19 +645,16 @@ export function DrawingStudio() {
         if (event.target === event.currentTarget) requestClose();
       }}
     >
-      <section className="glass-panel studio-panel" role="dialog" aria-modal="true" aria-label="Studio menggambar ikan">
+      <section className="studio-panel" role="dialog" aria-modal="true" aria-label="Studio menggambar ikan">
         <header className="studio-header">
-          <button type="button" className="glass-btn icon-btn studio-back" onClick={requestClose} aria-label="Tutup studio">
-            <Icon name="back" size={26} />
+          <button type="button" className="round-btn studio-back" onClick={requestClose} aria-label="Tutup studio">
+            <Icon name="back" size={24} />
           </button>
           <div className="studio-heading">
-            <h2>
-              Studio <span>Gambar</span>
-            </h2>
-            <p>Coret sepuasnya, ikanmu selalu rapi.</p>
+            <h2>Gambar Ikan</h2>
+            <p>{isFree ? 'Kanvas bebas — gambar sesukamu' : `Stiker ${template.label}`}</p>
           </div>
           <label className="name-pill">
-            <span>Nama</span>
             <input
               value={name}
               maxLength={20}
@@ -496,18 +663,31 @@ export function DrawingStudio() {
               aria-label="Nama ikan"
             />
             <button type="button" onClick={rollName} className="dice-btn" aria-label="Acak nama ikan">
-              <Icon name="dice" size={22} />
+              <Icon name="sparkles" size={19} />
             </button>
           </label>
-          <button type="button" className="glass-btn primary finish-top" onClick={finish} disabled={saving}>
-            <Icon name="wave" size={22} />
-            <span>{saving ? 'Menyiapkan…' : 'Lepaskan ke Laut!'}</span>
+          <button type="button" className="btn btn-primary finish-top" onClick={finish} disabled={saving}>
+            <Icon name="wave" size={20} />
+            <span>{saving ? 'Sebentar…' : 'Lepaskan!'}</span>
           </button>
         </header>
 
         <div className="studio-body">
           <div className="canvas-column">
-            <div className="canvas-stage" ref={stageRef}>
+            <div className={`canvas-stage ${isFree ? 'free-mode' : ''}`} ref={stageRef}>
+              {isFree && (
+                <svg className="free-guide" viewBox="0 0 1024 1024" aria-hidden="true">
+                  <path
+                    d="M 300 512 C 360 420 500 380 640 400 C 740 415 812 460 858 512 C 812 565 740 610 640 620 C 500 640 360 600 300 512 Z M 312 512 C 250 470 200 440 150 430 C 190 480 190 540 150 594 C 205 580 260 580 312 600"
+                    fill="none"
+                    stroke="#ff9fbe"
+                    strokeWidth="10"
+                    strokeDasharray="20 22"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              )}
               <canvas
                 ref={canvasRef}
                 className="drawing-canvas"
@@ -522,32 +702,21 @@ export function DrawingStudio() {
                   if (cursorRef.current) cursorRef.current.style.opacity = tool === 'fill' ? '0' : '1';
                 }}
               />
-              <div
-                ref={cursorRef}
-                className="brush-cursor"
-                style={{ borderColor: cursorColor, opacity: 0 }}
-                aria-hidden="true"
-              />
-              <div className="canvas-badge">
-                <Icon name="sparkles" size={16} />
-                <span>Otomatis rapi di dalam garis</span>
-              </div>
+              <div ref={cursorRef} className="brush-cursor" style={{ borderColor: cursorColor, opacity: 0 }} aria-hidden="true" />
+              {isFree && <span className="free-badge">✏️ Gambar bebas</span>}
             </div>
-            <div className="template-caption">
-              <span>{template.emoji}</span>
-              <strong>{template.label}</strong>
-              <span className="caption-divider" />
-              <span>Ganti bentuk akan mengosongkan warna</span>
-            </div>
+            <p className="canvas-note">
+              {isFree ? 'Semua coretanmu jadi stiker ikan.' : 'Warnai sesukamu — garis tetap rapi.'}
+            </p>
           </div>
 
           <aside className="studio-tools">
-            <section className="tool-section">
-              <div className="tool-heading">
-                <h3>Bentuk Ikan</h3>
-                <span>8 siluet</span>
+            <section className="tool-block">
+              <div className="block-head">
+                <h3>Pilih Ikan</h3>
+                <span>{TEMPLATES.length - 1} stiker + bebas</span>
               </div>
-              <div className="template-grid">
+              <div className="template-strip">
                 {TEMPLATES.map((item) => (
                   <button
                     key={item.id}
@@ -556,140 +725,146 @@ export function DrawingStudio() {
                     onClick={() => changeTemplate(item.id)}
                     aria-pressed={item.id === templateId}
                   >
-                    <TemplatePreview template={item} size={58} />
-                    <span>{item.label}</span>
+                    {item.free ? (
+                      <span className="free-sticker">
+                        <Icon name="pencil" size={30} />
+                      </span>
+                    ) : (
+                      <TemplatePreview template={item} size={56} />
+                    )}
+                    <span>{item.free ? 'Bebas' : item.label}</span>
                   </button>
                 ))}
               </div>
             </section>
 
-            <section className="tool-section">
-              <div className="tool-heading">
-                <h3>Warna</h3>
-                <span>16 warna cerah</span>
-              </div>
-              <div className="palette-grid">
-                {PALETTE.map((item) => (
-                  <button
-                    key={item.color}
-                    type="button"
-                    className={`swatch ${color === item.color && tool !== 'eraser' ? 'active' : ''} ${
-                      item.color === '#FFFFFF' ? 'light' : ''
-                    }`}
-                    style={{ background: item.color }}
-                    onClick={() => {
-                      setColor(item.color);
-                      if (tool === 'eraser') setTool('brush');
-                      sound.chime('soft');
-                    }}
-                    aria-label={`Warna ${item.name}`}
-                    title={item.name}
-                  >
-                    <span className="swatch-inner" />
-                  </button>
-                ))}
-              </div>
-            </section>
-
-            <section className="tool-section">
-              <div className="tool-heading">
+            <section className="tool-block">
+              <div className="block-head">
                 <h3>Alat</h3>
-                <span>Sentuh & gambar</span>
+                <span>{tool === 'brush' ? BRUSH_STYLES.find((style) => style.id === brushStyle)?.label : tool === 'fill' ? 'Ember' : 'Penghapus'}</span>
               </div>
               <div className="tool-row">
-                <button
-                  type="button"
-                  className={`tool-button ${tool === 'brush' ? 'active' : ''}`}
-                  onClick={() => {
-                    setTool('brush');
-                    sound.chime('soft');
-                  }}
-                  aria-pressed={tool === 'brush'}
-                >
-                  <Icon name="brush" size={24} />
+                <button type="button" className={`tool-chip ${tool === 'brush' ? 'active' : ''}`} onClick={() => setTool('brush')} aria-pressed={tool === 'brush'}>
+                  <Icon name="marker" size={22} />
                   <span>Kuas</span>
                 </button>
-                <button
-                  type="button"
-                  className={`tool-button ${tool === 'fill' ? 'active' : ''}`}
-                  onClick={() => {
-                    setTool('fill');
-                    sound.chime('soft');
-                  }}
-                  aria-pressed={tool === 'fill'}
-                >
-                  <Icon name="fill" size={24} />
+                <button type="button" className={`tool-chip ${tool === 'fill' ? 'active' : ''}`} onClick={() => setTool('fill')} aria-pressed={tool === 'fill'}>
+                  <Icon name="fill" size={22} />
                   <span>Ember</span>
                 </button>
-                <button
-                  type="button"
-                  className={`tool-button ${tool === 'eraser' ? 'active' : ''}`}
-                  onClick={() => {
-                    setTool('eraser');
-                    sound.chime('soft');
-                  }}
-                  aria-pressed={tool === 'eraser'}
-                >
-                  <Icon name="eraser" size={24} />
+                <button type="button" className={`tool-chip ${tool === 'eraser' ? 'active' : ''}`} onClick={() => setTool('eraser')} aria-pressed={tool === 'eraser'}>
+                  <Icon name="eraser" size={22} />
                   <span>Hapus</span>
                 </button>
-                <button type="button" className="tool-button" onClick={undo} disabled={!canUndo} aria-label="Undo">
-                  <Icon name="undo" size={24} />
+                <button type="button" className="tool-chip" onClick={undo} disabled={!canUndo}>
+                  <Icon name="undo" size={22} />
                   <span>Undo</span>
                 </button>
-                <button type="button" className="tool-button danger" onClick={reset} aria-label="Reset gambar">
-                  <Icon name="trash" size={24} />
+                <button type="button" className="tool-chip soft-danger" onClick={reset}>
+                  <Icon name="trash" size={22} />
                   <span>Reset</span>
                 </button>
               </div>
 
-              <div className="brush-row">
-                <span className="brush-label">Ukuran kuas</span>
-                <div className="brush-sizes">
-                  {BRUSH_SIZES.map((item) => (
+              {tool === 'brush' && (
+                <div className="brush-style-row">
+                  {BRUSH_STYLES.map((style) => (
                     <button
-                      key={item.value}
+                      key={style.id}
                       type="button"
-                      className={`brush-size ${brushSize === item.value ? 'active' : ''}`}
-                      onClick={() => {
-                        setBrushSize(item.value);
-                        setTool((current) => (current === 'eraser' ? 'eraser' : 'brush'));
-                        sound.chime('soft');
-                      }}
-                      aria-pressed={brushSize === item.value}
-                      aria-label={`Kuas ${item.label}`}
+                      className={`brush-chip ${brushStyle === style.id ? 'active' : ''}`}
+                      onClick={() => setBrushStyle(style.id)}
+                      aria-pressed={brushStyle === style.id}
                     >
-                      <span style={{ width: 6 + item.value / 4, height: 6 + item.value / 4 }} />
-                      <small>{item.label}</small>
+                      <Icon name={style.icon} size={18} />
+                      <span>{style.label}</span>
                     </button>
                   ))}
                 </div>
+              )}
+            </section>
+
+            <section className="tool-block">
+              <div className="block-head">
+                <h3>Warna</h3>
+                <span className="color-preview" style={{ background: color }} />
+              </div>
+              <div className="hue-wrap">
+                <span>Hue</span>
+                <input
+                  aria-label="Hue warna"
+                  className="hue-slider"
+                  type="range"
+                  min={0}
+                  max={359}
+                  value={hue}
+                  onChange={(event) => {
+                    const nextHue = Number(event.target.value);
+                    setHue(nextHue);
+                    setColor(hslToHex(nextHue));
+                    setTool((current) => (current === 'eraser' ? 'brush' : current));
+                  }}
+                />
+              </div>
+              <div className="swatch-row">
+                {STUDIO_SWATCHES.map((swatch) => (
+                  <button
+                    key={swatch}
+                    type="button"
+                    className={`swatch ${color.toLowerCase() === swatch.toLowerCase() ? 'active' : ''} ${swatch.toUpperCase() === '#FFF9F0' ? 'light' : ''}`}
+                    style={{ background: swatch }}
+                    onClick={() => chooseColor(swatch)}
+                    aria-label={`Warna ${swatch}`}
+                  />
+                ))}
+              </div>
+              <div className="size-wrap">
+                <span>Ukuran</span>
+                <input
+                  aria-label="Ukuran kuas"
+                  className="size-slider"
+                  type="range"
+                  min={TOOL_SIZES.min}
+                  max={TOOL_SIZES.max}
+                  value={brushSize}
+                  onChange={(event) => setBrushSize(Number(event.target.value))}
+                />
+                <strong>{brushSize}</strong>
               </div>
             </section>
 
+            <div className="tool-tip">
+              <span className="tip-bow">
+                <Icon name="bow" size={16} />
+              </span>
+              <p>
+                <strong>Jadi stiker!</strong>
+                {isFree ? ' Gambarmu dapat pinggiran putih lucu.' : ' Setiap ikan punya pinggiran putih.'}
+              </p>
+            </div>
           </aside>
         </div>
 
         <footer className="studio-mobile-footer">
-          <button type="button" className="glass-btn primary" onClick={finish} disabled={saving}>
-            <Icon name="wave" size={22} />
-            <span>{saving ? 'Menyiapkan…' : 'Lepaskan ke Laut!'}</span>
+          <button type="button" className="btn btn-primary" onClick={finish} disabled={saving}>
+            <Icon name="wave" size={20} />
+            <span>{saving ? 'Sebentar…' : 'Lepaskan ke Laut!'}</span>
           </button>
         </footer>
 
         {confirmClose && (
           <div className="confirm-layer">
-            <div className="glass-panel confirm-card">
-              <div className="confirm-emoji">🐟</div>
-              <h3>Tinggalkan gambar ini?</h3>
+            <div className="confirm-card">
+              <div className="confirm-emoji">🎀</div>
+              <h3>Tinggalkan gambar?</h3>
               <p>Gambar yang belum dilepas akan hilang.</p>
               <div className="confirm-actions">
-                <button type="button" className="glass-btn" onClick={() => setConfirmClose(false)}>
-                  Lanjut <Icon name="brush" size={18} />
+                <button type="button" className="btn btn-soft" onClick={() => setConfirmClose(false)}>
+                  Lanjut gambar
                 </button>
                 <button
                   type="button"
-                  className="glass-btn danger"
+                  className="btn btn-danger"
                   onClick={() => {
                     setConfirmClose(false);
                     closeStudio();

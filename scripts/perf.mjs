@@ -14,14 +14,15 @@ page.on('console', (message) => {
   if (message.type() === 'error') errors.push(message.text());
 });
 await page.goto('http://localhost:8787/', { waitUntil: 'networkidle' });
-await page.waitForSelector('.create-fab');
+await page.waitForSelector('.onboarding-card, .draw-fab');
 if (await page.locator('.onboarding-card').isVisible().catch(() => false)) {
-  await page.getByRole('button', { name: 'Lihat akuarium dulu' }).click();
+  await page.getByRole('button', { name: 'Lihat dulu' }).click();
 }
+await page.waitForSelector('.draw-fab');
 await page.waitForTimeout(500);
 
 const clients = [];
-const templates = ['clownfish', 'goldfish', 'puffer', 'shark', 'seahorse', 'angelfish', 'manta', 'whale'];
+const templates = ['clownfish', 'goldfish', 'puffer', 'shark', 'seahorse', 'angelfish', 'manta', 'whale', 'squid', 'betta', 'koi'];
 
 for (let c = 0; c < 6; c++) {
   const ws = new WebSocket('ws://localhost:8787/ws');
@@ -64,7 +65,7 @@ for (const [clientIndex, ws] of clients.entries()) {
   }
 }
 await page.waitForTimeout(3500);
-const hudCount = await page.locator('.room-chip-count').innerText();
+const hudCount = await page.locator('.fish-count').innerText();
 const fps = await page.evaluate(
   () =>
     new Promise((resolve) => {

@@ -1,48 +1,42 @@
 # Draw Our Fish
 
-**Draw Your Fish (Online Edition)** — anak menggambar ikan sendiri, lalu melepaskannya ke akuarium online bersama. Nama deploy: **Draw Our Fish**.
+**Draw Your Fish (Online Edition)** — anak menggambar ikan sendiri, lalu melepaskannya ke akuarium online bersama. Nama produk/deploy: **Draw Our Fish**. UI baru bergaya Sanrio: pastel, sticker, sederhana.
 
-Aplikasi PWA ramah anak dengan studio gambar 4-layer, simulasi renang real-time, akuarium publik/privat berbasis WebSocket, pakan bersama, emote, dan kartu pos foto. Tanpa akun, tanpa chat, tanpa data pribadi.
+**Live online (Cloudflare Workers):**
+**https://draw-our-fish.izzaahyad03.workers.dev**
+
+Backend WebSocket online berjalan di Cloudflare Durable Object. Tidak perlu akun anak, tidak ada chat teks, tidak ada data pribadi.
 
 ---
 
-## Fitur Utama
+## Fitur
 
-### Studio Gambar
-- 8 template siluet vektor: Clownfish, Goldfish, Pufferfish, Baby Shark, Seahorse, Angelfish, Manta Ray, Whale.
-- 4 layer: siluet putih, coretan anak dengan auto-clipping, shading/specular, outline + mata di lapisan teratas.
-- Kuas halus dengan interpolasi Quadratic Bezier, 3 ukuran (14/30/54 px pada kanvas 640).
-- Ember cat dengan scanline stack-based flood fill yang dibatasi mask siluet.
-- Penghapus, undo hingga 15 snapshot, reset.
-- 16 warna cerah, generator nama acak, input nama.
-- Ekspor otomatis ke WebP 384×384 (quality 0.82) di bawah batas server 80 KB.
-- Auto-crop sesuai bounding box, latar transparan.
+### Studio gambar baru
+- **12 pilihan**: 11 stiker ikan + **Gambar Bebas**.
+- Stiker baru terinspirasi referensi: **Squid**, **Betta**, **Koi**; plus Clownfish, Goldfish, Pufferfish, Baby Shark, Seahorse, Angelfish, Manta Ray, Whale.
+- **Gambar Bebas**: kanvas kosong dengan panduan putus-putus. Coretan anak otomatis jadi stiker dengan pinggiran putih + garis cokelat lembut.
+- **4 gaya kuas**: Spidol, Pensil, Krayon, Semprot/airbrush.
+- **Slider ukuran kuas** 6–64 px.
+- **Slider Hue** (semua warna) + 8 swatch cepat.
+- Ember cat dengan auto-clipping siluet (template) atau deteksi area tertutup (mode bebas).
+- Penghapus, undo 15 langkah, reset.
+- Nama acak lucu + dadu; ekspor WebP 384×384 (maks 80 KB).
+- Setiap ikan mendapat **sticker rim putih** seperti referensi, termasuk shading, outline, dan mata googly.
 
-### Akuarium
-- Latar laut atmosferik: gradien dalam, sinar matahari, gelembung, siluet terumbu, caustic.
-- Mesh strip 16 segmen dengan gelombang sinus; area kepala stabil dan ekor meliuk. Gerak vertikal dibatasi agar ikan tetap ramah anak.
-- Perilaku otonom: `WANDER`, `SEEK_FOOD` (1.8× kecepatan), `CURIOUS_TAP` (3 detik setelah ketukan kaca).
-- Ketuk air → riak, gelembung, ikan mendekat; ketuk ikan → menu emote (❤️ ✨ 🫧 🎵); tahan 2 detik → opsi sembunyikan ikan teman dari layar lokal.
-- Pakan jatuh, dimakan ikan, memicu squash-and-stretch, hati, dan suara munch.
-- Mode lokal otomatis dengan 4 ikan AI saat koneksi hilang.
+### Akuarium & sosial
+- Mesh strip 16 segmen dengan gerak sinus organik; kepala stabil, badan tidak pernah berputar vertikal.
+- Squid bergerak melayang (sprite), ikan lain berenang dengan mesh.
+- Pakan bersama, riak ketuk kaca, ikan penasaran 3 detik, emote (❤️ ✨ 🫧 🎵), dan long-press untuk menyembunyikan ikan.
+- Ruang publik otomatis (18 ikan/shards) dan **ruang privat 4 ikon**.
+- Sync 10 Hz + interpolasi; feed/tap/emote realtime.
+- Local Reef otomatis saat offline, dengan 4 ikan AI.
+- Dua ikan AI penghuni tampil saat ruangan sepi.
 
-### Online & Ruangan
-- Akuarium publik otomatis dengan shard maksimal 18 ikan aktif per ruangan.
-- Ruang privat dengan kode **4 ikon laut** (mis. ⭐ 🐠 🐙 🐚) — tanpa mengetik.
-- Sinkronisasi posisi 10 Hz + interpolasi halus di klien.
-- Spawn/despawn, pakan bersama, ketukan kaca, emote tersinkron.
-- Validasi server: WebP square ≤80 KB, nama disanitasi, maks 3 ikan/pemain, rate limit pesan.
-- Dua ikan AI "reef residents" ditampilkan saat ruangan masih sepi; hilang otomatis saat ruangan ramai.
-
-### Koleksi & Foto
-- Koleksi hingga 30 ikan tersimpan di IndexedDB (`idb-keyval`), otomatis berenang lagi saat dibuka.
-- Maksimal 3 ikan aktif; menambah ikan ke-4 otomatis mengangkat yang paling lama.
-- Mode foto: tangkapan WebGL dibungkus kartu pos kaca 1080×1350, langsung diunduh sebagai PNG.
-- PWA installable + service worker precache aset build (cold offline reload berfungsi).
-
-### Audio
-- Semua SFX dan BGM disintesis dengan Web Audio API (tanpa file audio): kuas dinamis, glass chime, splash, pop, munch, shutter, marimba/kalimba ambient.
-- Tombol mute tersimpan di localStorage.
+### Koleksi, foto, PWA
+- Koleksi lokal IndexedDB (maks 30), maksimal 3 ikan aktif.
+- Photo Booth: kartu pos 1080×1350 diunduh sebagai PNG.
+- PWA installable; service worker menyimpan HTML, JS/CSS ber-hash, font, dan ikon untuk cold offline reload.
+- Audio disintesis Web Audio (tanpa file audio): kuas, chime, splash, munch, kamera, BGM.
 
 ---
 
@@ -51,212 +45,122 @@ Aplikasi PWA ramah anak dengan studio gambar 4-layer, simulasi renang real-time,
 | Lapisan | Teknologi |
 | --- | --- |
 | UI | React 19 + TypeScript + Vite 6 |
-| Styling | Tailwind CSS v4 + custom Glassmorphism design system |
-| Render | PixiJS v8 (WebGL): mesh strip, partikel, riak, screenshot |
-| State | Zustand (state UI terpisah dari render loop) |
-| Persistence | IndexedDB (`idb-keyval`) + localStorage (preferensi) |
-| Realtime | Node.js + `ws` (Express serve static + WebSocket di origin yang sama) |
+| Desain | Tailwind v4 (reset) + design system Sanrio custom |
+| Grafik | PixiJS v8 WebGL (mesh 16 segmen, partikel, screenshot) |
+| State | Zustand |
+| Persistence | IndexedDB (`idb-keyval`) + localStorage |
+| Online | **Cloudflare Workers + Durable Objects + WebAssets** |
+| Backend lokal/Docker | Node.js `ws` + Express (protokol sama) |
 | Audio | Web Audio API |
-| Deploy | Docker / Render blueprint, satu service |
+| Deploy | `wrangler` (Cloudflare) / Docker opsional |
 
 ---
 
-## Menjalankan Lokal
+## Menjalankan lokal
 
-Prasyarat: Node.js 20+.
+Prasyarat: Node.js 20+ untuk aplikasi. Untuk deploy Cloudflare, gunakan Node.js **22.12+** (wrangler v4).
 
 ```bash
 npm install
 npm run dev
 ```
 
-- Frontend Vite: http://localhost:5173 (proxy `/ws` dan `/api` ke backend).
-- Backend WebSocket + API: http://localhost:8787.
-- Untuk membuka dari HP di Wi-Fi yang sama: jalankan `npm run dev:web -- --host`, lalu akses IP mesin di port 5173. Backend tetap diakses lewat proxy Vite.
+- Vite: http://localhost:5173 (proxy `/ws` ke backend).
+- Backend Node: http://localhost:8787.
 
-### Build produksi
+Build produksi + server Node:
 
 ```bash
 npm run build
 npm start
+# http://localhost:8787
 ```
 
-Buka http://localhost:8787. Server Express menyajikan `dist/` dan WebSocket pada `/ws`.
+### Cloudflare lokal/deploy
 
-### Variabel lingkungan
+```bash
+npx wrangler login
+npm run build
+npm run deploy:cf
+```
 
-| Nama | Default | Keterangan |
-| --- | --- | --- |
-| `PORT` | `8787` | Port server HTTP + WebSocket. |
-| `VITE_WS_URL` | _(kosong)_ | Opsional. URL WebSocket penuh, mis. `wss://api.contoh.com/ws`, jika frontend di-host terpisah dari backend. Perlu rebuild. |
+`wrangler.toml` sudah berisi:
+- Worker `draw-our-fish`
+- Durable Object `ReefRoom`
+- Static assets dari `dist/`
+- Routing `/ws` dan `/api/health`
 
-Tidak ada API key, database, atau akun. Semua data ikan tersimpan di perangkat anak.
+Live: **https://draw-our-fish.izzaahyad03.workers.dev**
 
 ---
 
-## Deploy
-
-### Render (disarankan, satu service)
-
-Repo sudah menyertakan [`render.yaml`](./render.yaml) dan [`Dockerfile`](./Dockerfile).
-
-1. Push repo ke GitHub/GitLab.
-2. Di Render → **New** → **Blueprint**.
-3. Pilih repo, Render membaca `render.yaml`, service bernama **draw-our-fish**.
-4. Deploy. Render menyuntikkan `PORT`; server mendengarkan port tersebut.
-5. Health check: `/api/health`.
-
-Hasil: `https://draw-our-fish.onrender.com` (atau nama unik lain). WebSocket otomatis memakai origin yang sama (`wss://.../ws`), termasuk di balik HTTPS Render.
-
-> Free plan Render bisa tidur saat tidak ada trafik. Klien akan otomatis reconnect dan kembali ke Local Reef selama tidur.
-
-### Docker di mana saja
-
-```bash
-docker build -t draw-our-fish .
-docker run --rm -p 8787:8787 -e PORT=8787 draw-our-fish
-```
-
-Bisa dipakai di Fly.io, Railway, VPS, Koyeb, dll. Satu container sudah mencakup frontend + backend + WebSocket.
-
-### Fly.io cepat
-
-```bash
-fly launch --name draw-our-fish --region sin
-fly deploy
-fly open
-```
-
-(Gunakan Dockerfile yang ada; tidak perlu database.)
-
-### Frontend terpisah (opsional)
-
-- Deploy `dist/` ke Netlify/Vercel/Cloudflare Pages.
-- Deploy backend Node ke Render/Railway/Fly.
-- Set `VITE_WS_URL=wss://backend-kamu/ws` lalu rebuild frontend.
-- Server WebSocket tidak membatasi origin, sehingga koneksi lintas domain berfungsi. Untuk keamanan produksi, tambahkan allowlist origin di `server/index.ts`.
-
----
-
-## Arsitektur
+## Struktur
 
 ```
 .
-├─ shared/protocol.ts        # kontrak pesan & tipe bersama client/server
-├─ server/
-│  ├─ index.ts               # Express + HTTP upgrade WebSocket + static dist
-│  ├─ roomManager.ts         # matchmaking, room privat, validasi, broadcast
-│  └─ rooms.ts               # model Room/Client
+├─ worker/
+│  ├─ index.ts             # Worker entry: /ws, /api/health, static assets
+│  └─ room.ts              # Durable Object: matchmaking, room, sinkronisasi
+├─ shared/protocol.ts      # tipe & konstanta client/server
+├─ server/                 # backend Node opsional (Docker/Render/local)
 ├─ src/
-│  ├─ aquarium/engine.ts     # PixiJS: background, mesh ikan, pakan, riak, emote
-│  ├─ components/            # HUD, DrawingStudio, RoomSheet, PhotoBooth, dll.
-│  ├─ data/templates.ts      # 8 Path2D siluet + palet
-│  ├─ lib/fishArt.ts         # render 4 layer, shading, mata, ekspor WebP
-│  ├─ lib/photo.ts           # komposisi kartu pos PNG
-│  ├─ lib/audio.ts           # SoundKit Web Audio
-│  ├─ net/client.ts          # WebSocket, reconnect, heartbeat
-│  ├─ store/useGameStore.ts  # Zustand: koleksi, live fish, ruangan, UI
-│  └─ index.css              # design system Underwater Glassmorphism
-├─ public/                   # PWA manifest, ikon, service worker
-├─ scripts/                  # smoke/multiplayer/protocol/offline/perf tests
+│  ├─ aquarium/engine.ts   # PixiJS: background pastel, mesh, pakan, riak, emote
+│  ├─ components/          # HUD, Studio, Room, Collection, Photo, Emote
+│  ├─ data/templates.ts    # 12 template + palet
+│  ├─ lib/fishArt.ts       # 4 layer, sticker rim, free-draw export
+│  ├─ lib/audio.ts
+│  ├─ net/client.ts
+│  ├─ store/useGameStore.ts
+│  └─ index.css            # tema Sanrio responsif
+├─ wrangler.toml
 ├─ Dockerfile
-└─ render.yaml
+└─ scripts/                # QA Playwright + protocol test
 ```
 
-### Alur singkat
-
-1. Client memuat aset (PWA) dan membuka WebSocket `/ws`.
-2. `HELLO` → server memasukkan ke shard publik dengan ikan paling sedikit.
-3. `ROOM_SNAPSHOT` → client memuat tekstur remote secara async dan menampilkan ikan.
-4. Saat anak selesai menggambar, WebP 384×384 dikirim lewat `FISH_SPAWN`.
-5. Server memvalidasi, menyimpan state, dan broadcast ke penghuni ruangan.
-6. Pemilik ikan mengirim `FISH_SYNC_BATCH` tiap 100 ms; klien lain melakukan interpolasi.
-7. Pakan/ketukan/emote disinkronkan lewat event terpisah.
-8. Saat koneksi putus, klien masuk Local Reef dengan 4 ikan AI dan mencoba reconnect otomatis.
-
-### Batas server
-
-- 18 ikan per ruangan.
-- 14 koneksi per ruangan.
-- 3 ikan per pemain per ruangan.
-- Tekstur: WebP square 96–768 px, ≤80 KB (dibaca dari header RIFF/WebP).
-- Payload WebSocket maks 150 KB.
-- Rate limit kasar 160 pesan / 10 detik per koneksi.
-
 ---
 
-## Keamanan & Privasi Anak
+## Keamanan & batasan server
 
-- Tanpa akun, email, nama asli, atau chat teks.
-- `ownerId` anonim dibuat lokal dan hanya dipakai untuk kepemilikan ikan.
-- Nama ikan disanitasi di server (karakter HTML/backtick dihapus, maks 22 karakter).
+- Tanpa akun/chat/email; `ownerId` anonim lokal.
+- Nama ikan disanitasi server (maks 22 karakter).
+- WebP square, 96–768 px, ≤80 KB, header divalidasi.
+- Maks 18 ikan/ruangan, 14 koneksi/ruangan, 3 ikan/pemain.
+- Rate limit pesan; payload WebSocket maks 150 KB.
 - Emote dibatasi 4 pilihan.
-- Ikan pemain lain bisa disembunyikan secara lokal (parental quick-hide).
-- Data ikan tidak diunggah ke storage permanen; hanya berada di memori ruangan selama sesi.
-- Koleksi pribadi disimpan di IndexedDB perangkat.
+- Cloudflare Durable Object menyimpan ruangan selama ada koneksi; data ikan hanya di memori ruangan (bukan storage permanen).
 
 ---
 
-## Performa
-
-Diukur pada Chromium desktop (WebGL): **18 ikan aktif = 60 FPS stabil**, tanpa error konsol. Bundle awal produksi:
-
-- JavaScript inti (React + app + PixiJS): **±267 KB gzip**.
-- CSS: **±11 KB gzip**.
-- Total inti di bawah budget **350 KB gzip**.
-- Tekstur ikan: ±17–30 KB WebP per ikan (di bawah batas 80 KB).
-- Canvas studio 640×640; ekspor 384×384.
-- Tekstur GPU dihancurkan saat ikan despawn (`texture.destroy(true)`), begitu juga background saat resize.
-
-Pengujian lain yang sudah dijalankan:
-- Dua klien masuk ruang privat dengan kode 4 ikon yang sama, posisi/ikan tersinkron.
-- Protokol pakan, ketukan, emote, validasi ukuran/header WebP.
-- Ketuk ikan membuka menu emote; long-press 2 detik membuka opsi hide.
-- Reload offline (cold) melalui service worker → Local Reef tanpa pesan error teknis.
-- Persistensi IndexedDB: ikan kembali berenang setelah reload.
-- Unduh kartu pos PNG (`draw-our-fish-YYYY-MM-DD.png`) berhasil.
-- Flood fill terukur ±1–10 ms per area pada desktop (target <15 ms).
-- Build Docker + container health check `/api/health` berhasil.
-
----
-
-## QA Scripts
-
-Server harus berjalan (`npm start`) dan Playwright Chromium terpasang (`npx playwright install chromium`). jalankan:
+## QA yang sudah dijalankan
 
 ```bash
-npm run test:protocol      # backend: spawn/sync/feed/tap/emote/room + validasi
-npm run test:multiplayer   # dua browser: ruang privat, ikan lintas pemain
+npm run test:protocol      # worker online: spawn/sync/feed/tap/emote/private room
+npm run test:multiplayer   # dua browser, ruang privat, ikan lintas pemain
 npm run test:offline       # persistence, PWA cold offline, download foto
-npm run test:interaction   # ketuk ikan → emote, long-press → hide
-npm run test:responsive    # iPad, ponsel kecil, landscape, overflow
-npm run test:perf          # 18 ikan, ukur FPS
-npm run test:smoke         # screenshot desktop & mobile alur utama
+npm run test:interaction   # tap emote & long-press hide
+npm run test:responsive    # iPad, ponsel kecil, landscape
+npm run test:perf          # 18 ikan, FPS
+npm run test:smoke         # screenshot alur utama
 ```
 
-Screenshot uji ditulis ke folder temp OS (`dyf-shots`, `dyf-multi`, `dyf-offline`).
+Hasil terakhir:
+- 18 ikan aktif = **60 FPS** di Chromium desktop.
+- Flood fill **±1–10 ms** di desktop.
+- Bundle inti **±267 KB gzip** (JS) + 11 KB CSS.
+- Free-draw + 3 template baru + brush style diuji; tidak ada error konsol.
+- Deployment Cloudflare & protokol WebSocket online lolos uji.
 
 ---
 
-## Catatan Desain
+## Catatan implementasi
 
-- **Mesh**: PRD menyebut `MeshRope`; implementasi akhir memakai mesh strip 16 segmen kustom di atas PixiJS `Mesh` dengan persamaan gelombang yang sama. Alasannya: `MeshRope` memaksa lebar geometri = tinggi tekstur persegi (384 px), sehingga tekstur ikan yang lebar terlipat dan sirip/ekor terpotong. Mesh strip menjaga sirip tetap utuh sambil mempertahankan gerak sinus, faktor kepala `(i/N)^1.6`, dan respons kecepatan.
-- **Anti-fragmentasi**: flip arah memakai squash 250 ms, bukan interpolasi `scale.x` melalui nol agar ikan tidak tampak menjadi garis vertikal saat berbalik.
-- **Bot ramah**: dua AI resident hanya muncul saat ruangan <14 ikan nyata; saat ramai, mereka pergi agar budget 18 ikan tetap terjaga.
-- **Offline**: service worker meng-cache HTML, JS/CSS ber-hash, font, dan ikon saat install, sehingga reload dingin tanpa jaringan tetap menampilkan aplikasi.
-
----
-
-## Status Roadmap
-
-- [x] Fase 1 — Studio gambar, fisika lokal, IndexedDB
-- [x] Fase 2 — Perilaku AI, riak, pakan, audio
-- [x] Fase 3 — Multiplayer WebSocket, shard publik, ruang 4 ikon, feed/emote
-- [x] Fase 4 — Photo booth, PWA/offline, optimasi tekstur, QA perangkat sentuh
-- [ ] Produksi lanjutan: moderasi nama lebih ketat, allowlist origin, observability, CDN aset bila frontend dipisah
+- **Mesh kustom**: PRD menyebut `MeshRope`, tetapi `MeshRope` memaksa lebar geometri = tinggi tekstur persegi sehingga sirip/ekor rusak. Implementasi memakai mesh strip 16 segmen PixiJS `Mesh` dengan gerak sinus dan faktor kepala `(i/N)^1.6`; hasil visual bersih.
+- **Sticker rim**: pinggiran putih 38 px pada ruang desain 1024, lalu crop dengan padding. Mode bebas membangun halo dari alpha coretan.
+- **Free-draw fill**: ember hanya mengisi area tertutup; jika tumpahan menyentuh tepi kanvas, operasi dibatalkan.
+- **Sanrio UI**: dibuat manual dengan vektor/CSS, tanpa gambar hasil AI generatif.
 
 ---
 
 ## Lisensi
 
-MIT — silakan pakai, modifikasi, dan ajarkan pada anak-anak. 🐠
+MIT.

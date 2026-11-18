@@ -77,11 +77,11 @@ export function RoomSheet() {
           <span className={`status-dot ${connection}`} />
           {online ? (
             <span>
-              Tersambung · {onlineCount} penjelajah · {room?.capacity ?? 18} ikan maksimal
+              {onlineCount} teman di ruang ini · {room?.capacity ?? 18} ikan
             </span>
           ) : (
             <span>
-              <Icon name="wifi-off" size={16} /> Mode Local Reef — menyambung ulang otomatis
+              <Icon name="wifi-off" size={15} /> Local Reef · menyambung otomatis
             </span>
           )}
         </div>
@@ -102,7 +102,7 @@ export function RoomSheet() {
                   </span>
                 ))}
               </div>
-              <p>Bagikan 4 ikon ini ke saudara atau teman. Mereka tinggal memasukkannya di menu yang sama.</p>
+              <p>Bagikan 4 ikon ini. Tanpa chat, hanya ikan dan emote.</p>
               <div className="room-card-actions">
                 <button type="button" className="glass-btn" onClick={copyCode}>
                   <Icon name="copy" size={20} /> Salin Kode
@@ -120,8 +120,8 @@ export function RoomSheet() {
                 <Icon name="users" size={28} />
               </span>
               <div>
-                <h3>Bikin ruang privat</h3>
-                <p>Hanya keluarga & teman yang punya 4 ikon rahasia. Tanpa chat, hanya ikan dan emote.</p>
+                <h3>Ruang keluarga</h3>
+                <p>Kumpulkan 4 ikon rahasia untuk saudara dan teman.</p>
               </div>
             </div>
             <button type="button" className="glass-btn primary" onClick={createRoom} disabled={joining}>
@@ -130,48 +130,50 @@ export function RoomSheet() {
           </div>
         )}
 
-        <div className="join-room">
-          <div className="tool-heading">
-            <h3>Gabung dengan 4 ikon</h3>
-            <span>{joining ? 'menyambungkan…' : 'ketuk lalu pilih ikon'}</span>
-          </div>
-          <div className="join-slots">
-            {code.map((icon, index) => (
-              <button
-                key={index}
-                type="button"
-                className={`join-slot ${slot === index ? 'active' : ''}`}
-                onClick={() => setSlot(index)}
-                aria-label={`Ikon ${index + 1}: ${icon}`}
-              >
-                {icon}
+        {room?.kind !== 'private' && (
+          <div className="join-room">
+            <div className="tool-heading">
+              <h3>Gabung dengan 4 ikon</h3>
+              <span>{joining ? 'menyambungkan…' : 'ketuk ikon untuk ganti'}</span>
+            </div>
+            <div className="join-slots">
+              {code.map((icon, index) => (
+                <button
+                  key={index}
+                  type="button"
+                  className={`join-slot ${slot === index ? 'active' : ''}`}
+                  onClick={() => setSlot(index)}
+                  aria-label={`Ikon ${index + 1}: ${icon}`}
+                >
+                  {icon}
+                </button>
+              ))}
+              <button type="button" className="glass-btn primary join-button" onClick={joinRoom} disabled={joining || !online}>
+                <Icon name="arrow-right" size={22} /> Gabung
               </button>
-            ))}
-            <button type="button" className="glass-btn primary join-button" onClick={joinRoom} disabled={joining || !online}>
-              <Icon name="arrow-right" size={22} /> Gabung
-            </button>
+            </div>
+            <div className="icon-picker">
+              {SEA_ICONS.map((icon) => (
+                <button
+                  key={icon}
+                  type="button"
+                  className="icon-pick"
+                  onClick={() => {
+                    setCode((current) => {
+                      const next = [...current];
+                      next[slot] = icon;
+                      return next;
+                    });
+                    setSlot((current) => (current + 1) % 4);
+                  }}
+                  aria-label={`Pilih ikon ${icon}`}
+                >
+                  {icon}
+                </button>
+              ))}
+            </div>
           </div>
-          <div className="icon-picker">
-            {SEA_ICONS.map((icon) => (
-              <button
-                key={icon}
-                type="button"
-                className="icon-pick"
-                onClick={() => {
-                  setCode((current) => {
-                    const next = [...current];
-                    next[slot] = icon;
-                    return next;
-                  });
-                  setSlot((current) => (current + 1) % 4);
-                }}
-                aria-label={`Pilih ikon ${icon}`}
-              >
-                {icon}
-              </button>
-            ))}
-          </div>
-        </div>
+        )}
 
         {hiddenIds.length > 0 && (
           <div className="hidden-strip">

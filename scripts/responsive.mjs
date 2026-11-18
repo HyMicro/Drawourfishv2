@@ -20,10 +20,11 @@ async function check(name, width, height, touch = false) {
     if (message.type() === 'error') errors.push(`${name}: ${message.text()}`);
   });
   await page.goto('http://localhost:8787/', { waitUntil: 'networkidle' });
-  await page.waitForSelector('.create-fab', { timeout: 20000 });
+  await page.waitForSelector('.onboarding-card, .draw-fab', { timeout: 20000 });
   if (await page.locator('.onboarding-card').isVisible().catch(() => false)) {
-    await page.getByRole('button', { name: 'Lihat akuarium dulu' }).click();
+    await page.getByRole('button', { name: 'Lihat dulu' }).click();
   }
+  await page.waitForSelector('.draw-fab');
   await page.waitForTimeout(900);
   const home = await page.evaluate(() => ({
     scrollWidth: document.documentElement.scrollWidth,
@@ -33,7 +34,7 @@ async function check(name, width, height, touch = false) {
     dock: document.querySelector('.dock')?.getBoundingClientRect().toJSON(),
   }));
   await page.screenshot({ path: path.join(outDir, `${name}-home.png`) });
-  await page.locator('.create-fab').click();
+  await page.locator('.draw-fab').click();
   await page.waitForSelector('.studio-panel');
   await page.waitForTimeout(500);
   const studio = await page.evaluate(() => {

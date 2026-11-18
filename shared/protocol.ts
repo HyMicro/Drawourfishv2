@@ -10,6 +10,10 @@ export const FISH_TEMPLATE_IDS = [
   'angelfish',
   'manta',
   'whale',
+  'squid',
+  'betta',
+  'koi',
+  'free',
 ] as const;
 
 export type FishTemplateId = (typeof FISH_TEMPLATE_IDS)[number];

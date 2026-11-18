@@ -19,43 +19,43 @@ export function Onboarding() {
           <span className="onboarding-bubble b3" />
         </div>
 
-        <p className="eyebrow">Akuarium online bersama</p>
+        <p className="eyebrow">little ocean club</p>
         <h1>
-          Gambar ikanmu.
+          Gambar ikan.
           <br />
           <span>Lepaskan ke laut!</span>
         </h1>
         <p className="onboarding-lead">
-          Coret sesukamu — ikanmu selalu jadi. Berenang bersama ikan teman dari seluruh dunia, tanpa akun dan tanpa chat.
+          Pilih stiker atau gambar bebas, warnai sesukamu, lalu lihat ikanmu berenang bersama teman.
         </p>
 
         <div className="onboarding-steps">
           <div className="onboarding-step">
             <span className="step-icon">
-              <Icon name="brush" size={26} />
+              <Icon name="brush" size={24} />
             </span>
             <strong>Gambar</strong>
-            <small>8 bentuk ikan lucu</small>
+            <small>stiker & bebas</small>
           </div>
           <div className="onboarding-step">
             <span className="step-icon">
-              <Icon name="wave" size={26} />
+              <Icon name="wave" size={24} />
             </span>
             <strong>Lepaskan</strong>
-            <small>Ikan langsung berenang</small>
+            <small>langsung berenang</small>
           </div>
           <div className="onboarding-step">
             <span className="step-icon">
-              <Icon name="heart" size={26} />
+              <Icon name="heart" size={24} />
             </span>
-            <strong>Berteman</strong>
-            <small>Beri makan & emote</small>
+            <strong>Bermain</strong>
+            <small>pakan & emote</small>
           </div>
         </div>
 
         <div className="onboarding-safety">
-          <Icon name="lock" size={18} />
-          <span>Aman untuk anak: tanpa chat, tanpa iklan, tanpa data pribadi.</span>
+          <Icon name="lock" size={17} />
+          <span>Tanpa akun · tanpa chat · aman untuk anak</span>
         </div>
 
         <div className="onboarding-actions">
@@ -67,7 +67,7 @@ export function Onboarding() {
               openStudio();
             }}
           >
-            <Icon name="plus" size={24} />
+            <Icon name="plus" size={22} />
             Gambar Ikan Pertamaku
           </button>
           <button
@@ -77,7 +77,7 @@ export function Onboarding() {
               closeOnboarding();
             }}
           >
-            Lihat akuarium dulu
+            Lihat dulu
           </button>
         </div>
       </section>

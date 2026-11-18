@@ -24,15 +24,16 @@ async function desktop() {
   });
 
   await page.goto(base, { waitUntil: 'networkidle' });
-  await page.waitForSelector('.create-fab', { timeout: 20000 });
+  await page.waitForSelector('.onboarding-card, .draw-fab', { timeout: 20000 });
   await page.waitForTimeout(1000);
   await page.screenshot({ path: path.join(outDir, '01-onboarding.png') });
 
-  await page.getByRole('button', { name: 'Lihat akuarium dulu' }).click();
+  await page.getByRole('button', { name: 'Lihat dulu' }).click();
+  await page.waitForSelector('.draw-fab');
   await page.waitForTimeout(2200);
   await page.screenshot({ path: path.join(outDir, '02-aquarium.png') });
 
-  await page.locator('.create-fab').click();
+  await page.locator('.draw-fab').click();
   await page.waitForSelector('.studio-panel');
   await page.waitForTimeout(500);
   await page.screenshot({ path: path.join(outDir, '03-studio.png') });
@@ -63,8 +64,7 @@ async function desktop() {
   await page.waitForTimeout(300);
 
   // Flood fill centre of the fish.
-  await page.locator('.tool-button').filter({ hasText: 'Ember' }).click();
-  await page.locator('.palette-grid').scrollIntoViewIfNeeded();
+  await page.locator('.tool-chip').filter({ hasText: 'Ember' }).click();
   const swatch = page.locator('.swatch').nth(5);
   await swatch.click();
   await page.mouse.click(box.x + box.width * 0.55, box.y + box.height * 0.55);
@@ -73,7 +73,7 @@ async function desktop() {
   await page.screenshot({ path: path.join(outDir, '04-studio-painted.png') });
 
   // Undo test.
-  await page.locator('.tool-button').filter({ hasText: 'Undo' }).click();
+  await page.locator('.tool-chip').filter({ hasText: 'Undo' }).click();
   await page.waitForTimeout(250);
   await page.screenshot({ path: path.join(outDir, '05-studio-undo.png') });
 
@@ -134,19 +134,20 @@ async function mobile() {
     if (message.type() === 'error') errors.push(`CONSOLE: ${message.text()}`);
   });
   await page.goto(base, { waitUntil: 'networkidle' });
-  await page.waitForSelector('.create-fab', { timeout: 20000 });
+  await page.waitForSelector('.onboarding-card, .draw-fab', { timeout: 20000 });
   await page.waitForTimeout(600);
   await page.screenshot({ path: path.join(outDir, '10-mobile-onboarding.png') });
-  await page.getByRole('button', { name: 'Lihat akuarium dulu' }).click();
+  await page.getByRole('button', { name: 'Lihat dulu' }).click();
+  await page.waitForSelector('.draw-fab');
   await page.waitForTimeout(1800);
   await page.screenshot({ path: path.join(outDir, '11-mobile-aquarium.png') });
 
-  await page.locator('.create-fab').click();
+  await page.locator('.draw-fab').click();
   await page.waitForSelector('.studio-panel');
   await page.waitForTimeout(700);
   await page.screenshot({ path: path.join(outDir, '12-mobile-studio.png') });
 
-  const finished = await page.locator('.studio-mobile-footer .glass-btn').isVisible();
+  const finished = await page.locator('.studio-mobile-footer .btn').isVisible();
   console.log('MOBILE_FINISH_VISIBLE', finished);
   console.log('MOBILE_ERRORS', JSON.stringify(errors, null, 2));
   await context.close();

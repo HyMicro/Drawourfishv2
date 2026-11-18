@@ -7,6 +7,7 @@ export interface FishTemplate {
   /** SVG path in a 1024×1024 design space. Fish faces right. */
   path: string;
   eye: { x: number; y: number; r: number };
+  eye2?: { x: number; y: number; r: number };
   /** Tight bounding box used to crop the final WebP texture. */
   box: { x: number; y: number; w: number; h: number };
   accent: string;
@@ -14,6 +15,7 @@ export interface FishTemplate {
   motion: 'rope' | 'drift';
   /** Relative display size in the aquarium. */
   size: number;
+  free?: boolean;
   mouth?: { x: number; y: number; w: number; h: number; kind: 'o' | 'smile' };
 }
 
@@ -269,6 +271,152 @@ export const TEMPLATES: FishTemplate[] = [
     size: 1.2,
     mouth: { x: 862, y: 556, w: 44, h: 22, kind: 'smile' },
   },
+  {
+    id: 'squid',
+    label: 'Squid',
+    emoji: '🦑',
+    path: `
+      M 512 92
+      C 612 92 700 190 716 314
+      C 730 410 704 500 634 544
+      C 614 556 606 578 610 608
+      C 616 650 602 682 574 686
+      C 546 690 530 666 536 642
+      C 542 616 526 596 502 594
+      C 476 592 458 614 464 642
+      C 470 674 450 698 422 690
+      C 390 680 378 650 390 614
+      C 398 588 384 566 358 558
+      C 284 532 248 448 258 350
+      C 270 210 388 92 512 92 Z
+      M 330 536
+      C 286 554 254 596 264 642
+      C 272 680 306 698 330 680
+      C 350 664 342 636 322 632
+      C 306 629 294 644 298 658
+      C 278 646 282 606 310 582 Z
+      M 694 536
+      C 738 554 770 596 760 642
+      C 752 680 718 698 694 680
+      C 674 664 682 636 702 632
+      C 718 629 730 644 726 658
+      C 746 646 742 606 714 582 Z
+      M 430 590
+      C 404 626 384 674 402 714
+      C 414 742 446 744 456 720
+      C 464 700 446 682 430 692
+      C 438 664 458 632 474 610 Z
+      M 512 602
+      C 492 650 490 708 512 738
+      C 528 760 558 744 550 718
+      C 544 698 526 698 526 718
+      C 518 682 520 642 536 610 Z
+      M 594 590
+      C 620 626 640 674 622 714
+      C 610 742 578 744 568 720
+      C 560 700 578 682 594 692
+      C 586 664 566 632 550 610 Z
+    `,
+    eye: { x: 438, y: 468, r: 33 },
+    eye2: { x: 586, y: 468, r: 33 },
+    box: { x: 150, y: 60, w: 724, h: 730 },
+    accent: '#FF857A',
+    pattern: 'spots',
+    motion: 'drift',
+    size: 1.0,
+    mouth: { x: 512, y: 548, w: 34, h: 20, kind: 'smile' },
+  },
+  {
+    id: 'betta',
+    label: 'Betta',
+    emoji: '🐠',
+    path: `
+      M 320 520
+      C 380 440 510 400 650 410
+      C 770 418 856 455 900 500
+      C 870 520 866 546 898 570
+      C 840 638 720 674 586 662
+      C 456 650 360 610 320 520 Z
+      M 330 520
+      C 290 470 240 430 180 410
+      C 230 470 245 510 230 550
+      C 200 580 165 600 130 630
+      C 200 630 250 660 290 690
+      C 285 660 295 630 320 610
+      C 300 580 300 548 330 520 Z
+      M 510 418
+      C 520 340 580 280 675 260
+      C 650 310 655 345 700 380
+      C 660 380 620 400 600 440
+      C 575 415 545 408 510 418 Z
+      M 620 410
+      C 665 345 735 320 790 332
+      C 750 372 745 402 778 436
+      C 735 420 690 430 660 455 Z
+      M 500 650
+      C 520 720 590 770 680 770
+      C 655 725 660 700 690 675
+      C 640 685 600 675 570 645 Z
+      M 608 650
+      C 628 720 648 780 708 810
+      C 688 760 698 725 728 700
+      C 688 705 653 685 638 640 Z
+    `,
+    eye: { x: 800, y: 496, r: 30 },
+    box: { x: 120, y: 240, w: 810, h: 585 },
+    accent: '#7FB6F4',
+    pattern: 'sweep',
+    motion: 'rope',
+    size: 1.06,
+    mouth: { x: 862, y: 548, w: 34, h: 20, kind: 'smile' },
+  },
+  {
+    id: 'koi',
+    label: 'Koi',
+    emoji: '🐟',
+    path: `
+      M 340 520
+      C 400 450 530 425 680 440
+      C 790 450 865 480 905 515
+      C 875 535 872 555 900 580
+      C 840 640 730 665 600 655
+      C 470 645 375 610 340 520 Z
+      M 360 520
+      C 300 480 240 450 170 430
+      C 220 480 245 520 260 560
+      C 220 550 180 570 140 600
+      C 210 600 260 620 305 650
+      C 295 610 310 570 360 545 Z
+      M 520 442
+      C 540 380 600 340 680 335
+      C 655 375 660 405 700 430
+      C 650 425 590 435 565 465 Z
+      M 520 645
+      C 540 705 600 745 670 748
+      C 645 712 650 690 680 670
+      C 635 678 590 670 560 645 Z
+    `,
+    eye: { x: 810, y: 500, r: 27 },
+    box: { x: 120, y: 320, w: 810, h: 400 },
+    accent: '#FFC46B',
+    pattern: 'spots',
+    motion: 'rope',
+    size: 1.1,
+    mouth: { x: 865, y: 548, w: 32, h: 18, kind: 'smile' },
+  },
+  {
+    id: 'free',
+    label: 'Gambar Bebas',
+    emoji: '✏️',
+    path: '',
+    eye: { x: 512, y: 512, r: 30 },
+    box: { x: 0, y: 0, w: 1024, h: 1024 },
+    accent: '#FFB6C9',
+    pattern: 'sweep',
+    motion: 'drift',
+    size: 1,
+    free: true,
+  },
 ];
 
 export const TEMPLATE_MAP = Object.fromEntries(TEMPLATES.map((template) => [template.id, template])) as Record<
@@ -297,4 +445,15 @@ export const PALETTE = [
   { name: 'Arang', color: '#243447' },
   { name: 'Kayu', color: '#A9744F' },
   { name: 'Lime', color: '#B8E986' },
+] as const;
+
+export const STUDIO_SWATCHES = [
+  '#FF7DA8',
+  '#FFB27D',
+  '#FFE66D',
+  '#8FE3B0',
+  '#72DDE8',
+  '#8AB6FF',
+  '#C9B1FF',
+  '#FFF9F0',
 ] as const;

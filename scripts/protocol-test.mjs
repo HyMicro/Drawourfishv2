@@ -7,47 +7,41 @@ const texture = fs.readFileSync(path.resolve('scripts/fixtures/fish.webp'));
 const textureData = `data:image/webp;base64,${texture.toString('base64')}`;
 console.log('TEXTURE_BYTES', texture.length, 'DATAURL', textureData.length);
 
-const messages = new Map();
 const errors = [];
 
-function client(name, ownerId) {
+function client(name) {
   const ws = new WebSocket(url);
   const queue = [];
   const waiters = [];
   ws.on('message', (raw) => {
     const message = JSON.parse(raw.toString());
     if (message.type === 'ERROR') errors.push(`${name}: ${message.code} ${message.message}`);
-    const waiter = waiters.shift();
-    if (waiter) waiter(message);
-    else queue.push(message);
+    const waiterIndex = waiters.findIndex((entry) => entry.predicate(message));
+    if (waiterIndex >= 0) {
+      const [entry] = waiters.splice(waiterIndex, 1);
+      clearTimeout(entry.timer);
+      entry.resolve(message);
+    } else {
+      queue.push(message);
+    }
   });
   const next = (predicate, timeout = 5000) =>
     new Promise((resolve, reject) => {
-      const check = (message) => {
-        if (predicate(message)) {
-          clearTimeout(timer);
-          resolve(message);
-          return true;
-        }
-        return false;
-      };
-      for (let i = 0; i < queue.length; i++) {
-        if (check(queue[i])) {
-          queue.splice(i, 1);
-          return;
-        }
+      const queueIndex = queue.findIndex(predicate);
+      if (queueIndex >= 0) {
+        resolve(queue.splice(queueIndex, 1)[0]);
+        return;
       }
-      const timer = setTimeout(() => reject(new Error(`${name}: timeout waiting for message`)), timeout);
-      const waiter = (message) => {
-        if (!check(message)) {
-          queue.push(message);
-          waiters.unshift(waiter);
-        } else {
-          const index = waiters.indexOf(waiter);
+      const entry = {
+        predicate,
+        resolve,
+        timer: setTimeout(() => {
+          const index = waiters.indexOf(entry);
           if (index >= 0) waiters.splice(index, 1);
-        }
+          reject(new Error(`${name}: timeout waiting for message`));
+        }, timeout),
       };
-      waiters.push(waiter);
+      waiters.push(entry);
     });
   const ready = new Promise((resolve, reject) => {
     ws.once('open', resolve);

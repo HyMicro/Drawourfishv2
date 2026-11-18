@@ -10,7 +10,6 @@ export function CollectionSheet() {
   const activeIds = useGameStore((state) => state.activeIds);
   const toggleActive = useGameStore((state) => state.toggleActive);
   const deleteFish = useGameStore((state) => state.deleteFish);
-  const addToast = useGameStore((state) => state.addToast);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'swimming'>('all');
 
@@ -148,21 +147,8 @@ export function CollectionSheet() {
 
         <footer className="sheet-footer">
           <span>
-            <Icon name="lock" size={15} /> Tersimpan lokal di perangkat ini
+            <Icon name="lock" size={14} /> Tersimpan di perangkat ini
           </span>
-          <button
-            type="button"
-            className="glass-btn subtle"
-            onClick={() => {
-              if (collection.length === 0) {
-                addToast('Koleksi masih kosong.');
-                return;
-              }
-              addToast('Semua ikan tersimpan aman di perangkat ini.', 'success');
-            }}
-          >
-            <Icon name="help" size={16} /> Tentang koleksi
-          </button>
         </footer>
       </section>
     </div>

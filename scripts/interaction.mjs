@@ -13,10 +13,11 @@ page.on('console', (message) => {
   if (message.type() === 'error') errors.push(message.text());
 });
 await page.goto('http://localhost:8787/', { waitUntil: 'networkidle' });
-await page.waitForSelector('.create-fab');
+await page.waitForSelector('.onboarding-card, .draw-fab');
 if (await page.locator('.onboarding-card').isVisible().catch(() => false)) {
-  await page.getByRole('button', { name: 'Lihat akuarium dulu' }).click();
+  await page.getByRole('button', { name: 'Lihat dulu' }).click();
 }
+await page.waitForSelector('.draw-fab');
 await page.waitForTimeout(2200);
 
 async function findOrangeFish() {

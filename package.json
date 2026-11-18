@@ -1,17 +1,20 @@
 {
   "name": "draw-our-fish",
   "private": true,
-  "version": "2.0.0",
+  "version": "2.1.0",
   "type": "module",
   "description": "Draw Your Fish — a safe, real-time shared aquarium for kids.",
   "scripts": {
     "dev": "concurrently -k -n web,server -c cyan,magenta \"vite\" \"tsx watch server/index.ts\"",
     "dev:web": "vite",
     "dev:server": "tsx watch server/index.ts",
+    "dev:cf": "wrangler dev",
     "build": "tsc -b && vite build && esbuild server/index.ts --bundle --platform=node --format=esm --packages=external --outfile=server/dist/index.js",
     "start": "node server/dist/index.js",
+    "deploy:cf": "wrangler deploy",
     "preview": "vite preview",
     "typecheck": "tsc -b --force",
+    "typecheck:worker": "tsc -p tsconfig.worker.json",
     "test:protocol": "node scripts/protocol-test.mjs",
     "test:smoke": "node scripts/smoke.mjs",
     "test:multiplayer": "node scripts/multiplayer.mjs",
@@ -32,6 +35,7 @@
     "zustand": "^5.0.2"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261118.1",
     "@tailwindcss/vite": "^4.0.0",
     "@types/express": "^5.0.0",
     "@types/node": "^22.10.5",
@@ -46,6 +50,7 @@
     "tailwindcss": "^4.0.0",
     "tsx": "^4.19.2",
     "typescript": "~5.7.2",
-    "vite": "^6.0.5"
+    "vite": "^6.0.5",
+    "wrangler": "^4.164.0"
   }
 }

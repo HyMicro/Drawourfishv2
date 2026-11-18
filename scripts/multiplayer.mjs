@@ -4,7 +4,7 @@ import path from 'node:path';
 
 const outDir = path.join(process.env.TEMP || '.', 'dyf-multi');
 fs.mkdirSync(outDir, { recursive: true });
-const base = 'http://localhost:8787';
+const base = process.env.BASE_URL || 'http://localhost:8787';
 
 const browser = await chromium.launch({ headless: false });
 const contextA = await browser.newContext({ viewport: { width: 1280, height: 800 } });
@@ -21,10 +21,11 @@ for (const [label, page] of [['A', pageA], ['B', pageB]]) {
 
 async function enter(page) {
   await page.goto(base, { waitUntil: 'networkidle' });
-  await page.waitForSelector('.create-fab', { timeout: 20000 });
+  await page.waitForSelector('.onboarding-card, .draw-fab', { timeout: 20000 });
   if (await page.locator('.onboarding-card').isVisible().catch(() => false)) {
-    await page.getByRole('button', { name: 'Lihat akuarium dulu' }).click();
+    await page.getByRole('button', { name: 'Lihat dulu' }).click();
   }
+  await page.waitForSelector('.draw-fab');
   await page.waitForTimeout(1200);
 }
 
@@ -32,11 +33,11 @@ await enter(pageA);
 await enter(pageB);
 
 // Draw and release a fish on A.
-await pageA.locator('.create-fab').click();
+await pageA.locator('.draw-fab').click();
 await pageA.waitForSelector('.studio-panel');
 const box = await pageA.locator('.drawing-canvas').boundingBox();
-await pageA.locator('.swatch').nth(9).click();
-await pageA.locator('.tool-button').filter({ hasText: 'Ember' }).click();
+await pageA.locator('.swatch').nth(3).click();
+await pageA.locator('.tool-chip').filter({ hasText: 'Ember' }).click();
 await pageA.locator('.swatch').nth(5).click();
 await pageA.mouse.click(box.x + box.width * 0.55, box.y + box.height * 0.55);
 await pageA.waitForTimeout(350);
@@ -66,16 +67,16 @@ await pageB.getByRole('button', { name: /Gabung/ }).click();
 await pageB.waitForTimeout(1800);
 await pageB.screenshot({ path: path.join(outDir, '02-room-b-joined.png') });
 
-const countA = await pageA.locator('.room-chip-count').innerText();
-const countB = await pageB.locator('.room-chip-count').innerText();
-const roomLabelA = await pageA.locator('.room-chip-label').innerText();
-const roomLabelB = await pageB.locator('.room-chip-label').innerText();
-console.log('SYNCED_ROOM', JSON.stringify({ roomLabelA, roomLabelB, countA, countB }));
-
-// Close both room sheets so the aquarium is interactable again.
+// Close both room sheets so the HUD and aquarium are interactable again.
 await pageA.locator('.room-panel .sheet-header .icon-btn').click();
 await pageB.locator('.room-panel .sheet-header .icon-btn').click();
-await pageA.waitForTimeout(500);
+await pageA.waitForTimeout(700);
+
+const countA = await pageA.locator('.fish-count').innerText();
+const countB = await pageB.locator('.fish-count').innerText();
+const roomLabelA = await pageA.locator('.room-label').innerText();
+const roomLabelB = await pageB.locator('.room-label').innerText();
+console.log('SYNCED_ROOM', JSON.stringify({ roomLabelA, roomLabelB, countA, countB }));
 
 // Feed from A while B watches.
 await pageA.locator('.dock-item').filter({ hasText: 'Pakan' }).click();

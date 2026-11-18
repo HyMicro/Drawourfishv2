@@ -68,6 +68,15 @@ export function drawFishArt(
   ctx.save();
   ctx.scale(scale, scale);
 
+  // Sticker rim — the thick white border from cute sticker artwork.
+  ctx.save();
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.98)';
+  ctx.lineWidth = 38;
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
+  ctx.stroke(path);
+  ctx.restore();
+
   // Layer 0 — silhouette fill.
   if (shadow) {
     ctx.save();
@@ -145,15 +154,16 @@ export function drawFishArt(
     ctx.globalAlpha = 1;
   }
 
-  if (withEye) drawEye(ctx, template);
+  if (withEye) {
+    drawEyeAt(ctx, template.eye.x, template.eye.y, template.eye.r);
+    if (template.eye2) drawEyeAt(ctx, template.eye2.x, template.eye2.y, template.eye2.r);
+  }
   drawMouth(ctx, template);
 
   ctx.restore();
 }
 
-function drawEye(ctx: CanvasRenderingContext2D, template: FishTemplate) {
-  const { x, y, r } = template.eye;
-
+function drawEyeAt(ctx: CanvasRenderingContext2D, x: number, y: number, r: number) {
   ctx.save();
   // Socket shadow
   ctx.fillStyle = 'rgba(16, 39, 58, 0.16)';
@@ -324,7 +334,7 @@ export function exportFishTexture(template: FishTemplate, paint: HTMLCanvasEleme
   });
 
   const ratio = renderSize / 1024;
-  const pad = 14;
+  const pad = 42;
   const sx = Math.max(0, (template.box.x - pad) * ratio);
   const sy = Math.max(0, (template.box.y - pad) * ratio);
   const sw = Math.min(renderSize - sx, (template.box.w + pad * 2) * ratio);
@@ -341,6 +351,10 @@ export function exportFishTexture(template: FishTemplate, paint: HTMLCanvasEleme
   const dh = sh * fit;
   ctx.drawImage(full, sx, sy, sw, sh, (384 - dw) / 2, (384 - dh) / 2, dw, dh);
 
+  return compressCanvas(out);
+}
+
+function compressCanvas(out: HTMLCanvasElement): ExportedFish {
   let dataUrl = out.toDataURL('image/webp', 0.82);
   let bytes = Math.round(((dataUrl.length - dataUrl.indexOf(',') - 1) * 3) / 4);
   if (bytes > 60 * 1024) {
@@ -352,4 +366,107 @@ export function exportFishTexture(template: FishTemplate, paint: HTMLCanvasEleme
     bytes = Math.round(((dataUrl.length - dataUrl.indexOf(',') - 1) * 3) / 4);
   }
   return { dataUrl, bytes };
+}
+
+function alphaBounds(canvas: HTMLCanvasElement): { x: number; y: number; w: number; h: number } | null {
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  if (!ctx) return null;
+  const { width, height } = canvas;
+  const data = ctx.getImageData(0, 0, width, height).data;
+  let minX = width;
+  let minY = height;
+  let maxX = -1;
+  let maxY = -1;
+  for (let y = 0; y < height; y += 2) {
+    for (let x = 0; x < width; x += 2) {
+      if (data[(y * width + x) * 4 + 3] > 14) {
+        if (x < minX) minX = x;
+        if (y < minY) minY = y;
+        if (x > maxX) maxX = x;
+        if (y > maxY) maxY = y;
+      }
+    }
+  }
+  if (maxX < minX || maxY < minY) return null;
+  return {
+    x: Math.max(0, minX - 3),
+    y: Math.max(0, minY - 3),
+    w: Math.min(width, maxX - minX + 7),
+    h: Math.min(height, maxY - minY + 7),
+  };
+}
+
+function tintedSilhouette(source: HTMLCanvasElement, color: string): HTMLCanvasElement {
+  const canvas = document.createElement('canvas');
+  canvas.width = source.width;
+  canvas.height = source.height;
+  const ctx = canvas.getContext('2d');
+  if (ctx) {
+    ctx.drawImage(source, 0, 0);
+    ctx.globalCompositeOperation = 'source-in';
+    ctx.fillStyle = color;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
+  return canvas;
+}
+
+/**
+ * Free-draw export: the child's whole drawing becomes a sticker with a white
+ * rim and a soft cocoa outline, then gets cropped into the same 384px square
+ * the aquarium uses for template fish.
+ */
+export function exportFreeFish(paint: HTMLCanvasElement): ExportedFish {
+  const bounds = alphaBounds(paint);
+  if (!bounds) return { dataUrl: '', bytes: 0 };
+
+  const art = document.createElement('canvas');
+  art.width = 768;
+  art.height = 768;
+  const artCtx = art.getContext('2d');
+  if (!artCtx) return { dataUrl: '', bytes: 0 };
+  const inner = 656;
+  const offset = (768 - inner) / 2;
+  artCtx.drawImage(paint, offset, offset, inner, inner);
+
+  const white = tintedSilhouette(art, '#ffffff');
+  const cocoa = tintedSilhouette(art, '#5b3d49');
+  const composed = document.createElement('canvas');
+  composed.width = 768;
+  composed.height = 768;
+  const ctx = composed.getContext('2d');
+  if (!ctx) return { dataUrl: '', bytes: 0 };
+
+  const ring = (source: HTMLCanvasElement, radius: number) => {
+    const steps = 20;
+    for (let i = 0; i < steps; i++) {
+      const angle = (i / steps) * Math.PI * 2;
+      ctx.drawImage(source, Math.cos(angle) * radius, Math.sin(angle) * radius);
+    }
+  };
+
+  ring(white, 21);
+  ring(cocoa, 12);
+  ctx.drawImage(art, 0, 0);
+
+  const composedBounds = alphaBounds(composed) ?? { x: 0, y: 0, w: 768, h: 768 };
+  const out = document.createElement('canvas');
+  out.width = 384;
+  out.height = 384;
+  const outCtx = out.getContext('2d');
+  if (!outCtx) return { dataUrl: '', bytes: 0 };
+  const fit = Math.min((384 - 16) / composedBounds.w, (384 - 16) / composedBounds.h);
+  const dw = composedBounds.w * fit;
+  const dh = composedBounds.h * fit;
+  outCtx.drawImage(
+    composed,
+    composedBounds.x,
+    composedBounds.y,
+    composedBounds.w,
+    composedBounds.h,
+    (384 - dw) / 2,
+    (384 - dh) / 2,
+    dw,
+    dh,
+  );
+  return compressCanvas(out);
 }

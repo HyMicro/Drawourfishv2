@@ -94,13 +94,16 @@ export default function App() {
     };
   }, []);
 
+  const overlayOpen =
+    studioOpen || collectionOpen || roomOpen || photoOpen || (ready && onboardingOpen);
+
   return (
     <div className={`app-root ${photoOpen ? 'photo-mode' : ''}`}>
       {ready ? <AquariumCanvas /> : <div className="boot-water" />}
       <div className="water-vignette" aria-hidden="true" />
       <div className="surface-glow" aria-hidden="true" />
 
-      {ready && !photoOpen && <Hud />}
+      {ready && !overlayOpen && <Hud />}
       {!ready && <BootSplash />}
 
       {ready && <Toasts />}
