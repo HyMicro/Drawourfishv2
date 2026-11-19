@@ -16,6 +16,7 @@ import {
 import type { EmoteKind, FishEntity, FishState, FishSync } from '../../shared/protocol';
 import { EMOTES, FEED_GROWTH, MAX_FISH_GROWTH } from '../../shared/protocol';
 import { getTemplate } from '../data/templates';
+import { getIndonesiaTime } from '../lib/timeOfDay';
 import { sound } from '../lib/audio';
 import { clamp, createId, easeOutCubic, randomBetween, smoothNoise } from '../lib/utils';
 
@@ -147,6 +148,33 @@ function makeBubbleTexture(): Texture {
   return Texture.from(canvas);
 }
 
+function makeMoonTexture(): Texture {
+  const canvas = document.createElement('canvas');
+  canvas.width = 256;
+  canvas.height = 256;
+  const ctx = canvas.getContext('2d');
+  if (ctx) {
+    const glow = ctx.createRadialGradient(128, 128, 20, 128, 128, 128);
+    glow.addColorStop(0, 'rgba(255, 250, 218, 0.8)');
+    glow.addColorStop(0.35, 'rgba(255, 244, 194, 0.28)');
+    glow.addColorStop(0.72, 'rgba(210, 230, 255, 0.08)');
+    glow.addColorStop(1, 'rgba(210, 230, 255, 0)');
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, 256, 256);
+    ctx.fillStyle = '#fff3c4';
+    ctx.beginPath();
+    ctx.arc(128, 128, 42, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(222, 208, 168, 0.32)';
+    for (const [x, y, r] of [[114, 118, 8], [142, 136, 6], [122, 145, 5]]) {
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  return Texture.from(canvas);
+}
+
 async function loadTexture(dataUrl: string): Promise<Texture> {
   const image = new Image();
   image.decoding = 'async';
@@ -166,6 +194,14 @@ export class AquariumEngine {
   private backgroundSprite: Sprite | null = null;
   private backgroundTexture: Texture | null = null;
   private raysSprite: Sprite | null = null;
+  private nightShade: Sprite | null = null;
+  private timeOverlay: Sprite | null = null;
+  private timeOverlayTexture: Texture | null = null;
+  private timeOverlayCanvas: HTMLCanvasElement | null = null;
+  private moonSprite: Sprite | null = null;
+  private moonTexture: Texture | null = null;
+  private timeTimer: number | null = null;
+  private timeRays = 1;
   private bubbleTexture: Texture | null = null;
   private fishLayer = new Container();
   private bubbleLayer = new Container();
@@ -241,6 +277,9 @@ export class AquariumEngine {
     );
     this.bubbleTexture = makeBubbleTexture();
     await this.setupBackground();
+    this.buildTimeLayers();
+    this.applyTimeOfDay();
+    this.timeTimer = window.setInterval(() => this.applyTimeOfDay(), 60_000);
     this.buildAmbientBubbles();
     this.attachPointer(canvas);
     app.ticker.add(this.tick);
@@ -337,6 +376,89 @@ export class AquariumEngine {
     this.raysSprite.blendMode = 'screen';
     this.raysSprite.alpha = 0.2;
     this.app.stage.addChildAt(this.raysSprite, 1);
+  }
+
+  private buildTimeLayers() {
+    if (!this.app) return;
+    if (!this.nightShade) {
+      const shade = new Sprite(Texture.WHITE);
+      shade.tint = 0x14264a;
+      shade.blendMode = 'multiply';
+      shade.alpha = 0;
+      this.nightShade = shade;
+      this.app.stage.addChildAt(shade, 2);
+    }
+    if (!this.timeOverlay) {
+      const canvas = document.createElement('canvas');
+      canvas.width = 512;
+      canvas.height = 512;
+      this.timeOverlayCanvas = canvas;
+      this.timeOverlayTexture = Texture.from(canvas);
+      const overlay = new Sprite(this.timeOverlayTexture);
+      overlay.blendMode = 'soft-light';
+      this.timeOverlay = overlay;
+      this.app.stage.addChildAt(overlay, 3);
+    }
+    if (!this.moonSprite) {
+      this.moonTexture = makeMoonTexture();
+      const moon = new Sprite(this.moonTexture);
+      moon.anchor.set(0.5);
+      moon.blendMode = 'screen';
+      moon.alpha = 0;
+      this.moonSprite = moon;
+      this.app.stage.addChildAt(moon, 4);
+    }
+    this.layoutTimeLayers();
+  }
+
+  private layoutTimeLayers() {
+    const width = this.width;
+    const height = this.height;
+    if (this.nightShade) {
+      this.nightShade.width = width;
+      this.nightShade.height = height;
+    }
+    if (this.timeOverlay) {
+      this.timeOverlay.width = width;
+      this.timeOverlay.height = height;
+    }
+    if (this.moonSprite) {
+      const size = Math.min(190, Math.max(110, width * 0.14));
+      this.moonSprite.width = size;
+      this.moonSprite.height = size;
+      this.moonSprite.position.set(width * 0.81, height * 0.15);
+    }
+  }
+
+  private applyTimeOfDay() {
+    const info = getIndonesiaTime();
+    this.timeRays = info.ray;
+    if (this.backgroundSprite) this.backgroundSprite.tint = info.tint;
+    if (this.timeOverlay) this.timeOverlay.blendMode = info.period === 'malam' ? 'soft-light' : 'overlay';
+    if (this.nightShade) {
+      this.nightShade.alpha = info.night * 0.42;
+    }
+    if (this.moonSprite) {
+      this.moonSprite.alpha = info.night * 0.82;
+    }
+    const canvas = this.timeOverlayCanvas;
+    const texture = this.timeOverlayTexture;
+    if (canvas && texture) {
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        const [r, g, b] = info.warm;
+        const top = Math.min(1, info.warmAlpha * 1.25);
+        const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+        gradient.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${top})`);
+        gradient.addColorStop(0.55, `rgba(${r}, ${g}, ${b}, ${info.warmAlpha * 0.42})`);
+        gradient.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        texture.source.update();
+      }
+    }
+    this.layoutTimeLayers();
   }
 
   private async loadSilhouettes() {
@@ -735,7 +857,7 @@ export class AquariumEngine {
     const now = this.time;
 
     if (this.raysSprite) {
-      this.raysSprite.alpha = 0.16 + Math.sin(now * 0.22) * 0.045;
+      this.raysSprite.alpha = (0.16 + Math.sin(now * 0.22) * 0.045) * this.timeRays;
       this.raysSprite.x = Math.sin(now * 0.08) * 14;
     }
     this.updateBackgroundFish(dt);
@@ -1216,6 +1338,7 @@ export class AquariumEngine {
     this.scaleFactor = this.baseScale();
     this.layoutBackground();
     this.buildRays();
+    this.layoutTimeLayers();
     this.buildAmbientBubbles();
     for (const swimmer of this.swimmers.values()) {
       swimmer.x = clamp(swimmer.x, 46, this.width - 46);
@@ -1248,6 +1371,7 @@ export class AquariumEngine {
     this.destroyed = true;
     this.ready = false;
     this.clearPressTimer();
+    if (this.timeTimer !== null) window.clearInterval(this.timeTimer);
     if (this.resizeTimer !== null) window.clearTimeout(this.resizeTimer);
     this.resizeObserver?.disconnect();
     const canvas = this.app?.canvas;
@@ -1267,6 +1391,9 @@ export class AquariumEngine {
     this.bubbleTexture?.destroy(true);
     this.backgroundTexture?.destroy(true);
     this.raysSprite?.texture.destroy(true);
+    this.timeOverlayTexture?.destroy(true);
+    this.moonTexture?.destroy(true);
+    this.timeOverlayCanvas = null;
     for (const texture of this.silhouetteTextures) texture.destroy(true);
     this.silhouetteTextures = [];
     if (this.app) {

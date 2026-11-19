@@ -1,4 +1,6 @@
+import { useEffect, useState } from 'react';
 import { getEngine } from '../aquarium/bridge';
+import { getIndonesiaTime } from '../lib/timeOfDay';
 import { network } from '../net/client';
 import { useGameStore } from '../store/useGameStore';
 import { Icon } from './Icon';
@@ -16,6 +18,12 @@ export function Hud() {
 
   const fishCount = Object.keys(liveFishes).length;
   const statusLabel = connection === 'offline' ? 'Local Reef' : 'Ocean Global';
+  const [clock, setClock] = useState(getIndonesiaTime);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setClock(getIndonesiaTime()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   const feed = () => {
     const engine = getEngine();
@@ -47,6 +55,12 @@ export function Hud() {
             <span className="fish-count">
               <Icon name="fish" size={13} />
               {fishCount}
+            </span>
+            <span
+              className={`time-chip ${clock.period}`}
+              title={`Waktu Indonesia: ${String(clock.hour).padStart(2, '0')}.${String(clock.minute).padStart(2, '0')} ${clock.zoneLabel}`}
+            >
+              {clock.label}
             </span>
           </div>
         </div>

@@ -437,6 +437,54 @@ p {
   font-size: 10px;
 }
 
+.time-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #fff3dd;
+  color: #a15428;
+  font-size: 9.5px;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+}
+
+.time-chip::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #f4a259;
+}
+
+.time-chip.siang {
+  background: #e2f5f3;
+  color: #2f7d7a;
+}
+
+.time-chip.siang::before {
+  background: #58bfb6;
+}
+
+.time-chip.sore {
+  background: #ffe3c8;
+  color: #a84e28;
+}
+
+.time-chip.sore::before {
+  background: #ef8354;
+}
+
+.time-chip.malam {
+  background: #e7edf8;
+  color: #40557c;
+}
+
+.time-chip.malam::before {
+  background: #7e95c7;
+}
+
 .status-dot {
   width: 8px;
   height: 8px;

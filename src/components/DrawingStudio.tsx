@@ -33,7 +33,11 @@ type BlendMode =
   | 'darken'
   | 'lighten'
   | 'color-dodge'
-  | 'soft-light';
+  | 'soft-light'
+  | 'hue'
+  | 'saturation'
+  | 'color'
+  | 'luminosity';
 
 const BLEND_MODES: Array<{ id: BlendMode; label: string }> = [
   { id: 'source-over', label: 'Normal' },
@@ -44,6 +48,10 @@ const BLEND_MODES: Array<{ id: BlendMode; label: string }> = [
   { id: 'lighten', label: 'Lighten' },
   { id: 'color-dodge', label: 'Dodge' },
   { id: 'soft-light', label: 'Soft' },
+  { id: 'hue', label: 'Hue' },
+  { id: 'saturation', label: 'Saturate' },
+  { id: 'color', label: 'Color' },
+  { id: 'luminosity', label: 'Luminance' },
 ];
 
 const BRUSH_STYLES: Array<{ id: BrushStyle; label: string; icon: IconName }> = [
