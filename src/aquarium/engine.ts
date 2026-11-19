@@ -1037,9 +1037,20 @@ export class AquariumEngine {
   spawnFeeding(count = 5): Array<{ id: string; x: number; y: number }> {
     if (!this.app) return [];
     const dropped: Array<{ id: string; x: number; y: number }> = [];
+    const targets = [...this.swimmers.values()]
+      .filter((swimmer) => !swimmer.hidden)
+      .sort((a, b) => Number(b.isMine) - Number(a.isMine))
+      .slice(0, count);
     for (let i = 0; i < count; i++) {
-      const xNorm = clamp(0.5 + randomBetween(-0.17, 0.17), 0.08, 0.92);
-      const yNorm = clamp(0.1 + randomBetween(-0.03, 0.05), 0.06, 0.28);
+      let xNorm = clamp(0.5 + randomBetween(-0.17, 0.17), 0.08, 0.92);
+      let yNorm = clamp(0.1 + randomBetween(-0.03, 0.05), 0.06, 0.28);
+      const target = targets[i];
+      if (target) {
+        // Drop food near the fish too, with the player's own fish first, so
+        // feeding actually reaches a fish before the resident bots eat it all.
+        xNorm = clamp(target.x / this.width + randomBetween(-0.08, 0.08), 0.08, 0.92);
+        yNorm = clamp(target.y / this.height + randomBetween(-0.05, 0.05), 0.08, 0.82);
+      }
       const id = createId();
       this.addPellet(id, xNorm, yNorm);
       dropped.push({ id, x: xNorm, y: yNorm });

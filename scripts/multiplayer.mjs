@@ -64,9 +64,7 @@ await pageB.screenshot({ path: path.join(outDir, '02-global-b.png') });
 
 // Feed from A while B watches.
 await pageA.locator('.dock-item').filter({ hasText: 'Pakan' }).click();
-await pageA.waitForTimeout(500);
-await pageA.mouse.click(700, 300);
-await pageA.waitForTimeout(800);
+await pageA.waitForTimeout(1200);
 await pageA.screenshot({ path: path.join(outDir, '03-feed-a.png') });
 await pageB.screenshot({ path: path.join(outDir, '04-feed-b.png') });
 

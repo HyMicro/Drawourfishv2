@@ -232,5 +232,5 @@ export const ROOM_CAPACITY = 18;
 export const MAX_CLIENTS_PER_ROOM = 60;
 export const MAX_FISH_PER_OWNER = 3;
 export const MAX_FISH_GROWTH = 1.8;
-export const FEED_GROWTH = 0.07;
+export const FEED_GROWTH = 0.15;
 export const MAX_TEXTURE_BYTES = 80 * 1024;

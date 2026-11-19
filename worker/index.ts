@@ -81,7 +81,7 @@ export default {
       if (!isOriginAllowed(request, env)) {
         return secure(new Response('Forbidden origin', { status: 403 }));
       }
-      const id = env.REEF.idFromName('draw-our-fish-global-reef-v2');
+      const id = env.REEF.idFromName('draw-our-fish-global-reef-v3');
       return env.REEF.get(id).fetch(request);
     }
 
