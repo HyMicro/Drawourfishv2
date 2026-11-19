@@ -48,6 +48,8 @@ export interface FishEntity {
   /** Compressed WebP data URL. */
   textureData: string;
   createdAt: number;
+  /** 1 = normal, grows toward MAX_FISH_GROWTH after eating. */
+  growth?: number;
   transform: FishTransform;
   state: FishState;
 }
@@ -195,6 +197,12 @@ export interface ServerEmote {
   emote: EmoteKind;
 }
 
+export interface ServerFishGrowth {
+  type: 'FISH_GROWTH';
+  fishId: string;
+  growth: number;
+}
+
 export interface ServerError {
   type: 'ERROR';
   code: 'OCEAN_FULL' | 'INVALID_PAYLOAD' | 'RATE_LIMIT' | 'UNKNOWN';
@@ -203,6 +211,7 @@ export interface ServerError {
 
 export interface ServerPong {
   type: 'PONG';
+  version?: string;
 }
 
 export type ServerMessage =
@@ -215,10 +224,13 @@ export type ServerMessage =
   | ServerFeedConsumed
   | ServerGlassTap
   | ServerEmote
+  | ServerFishGrowth
   | ServerError
   | ServerPong;
 
 export const ROOM_CAPACITY = 18;
 export const MAX_CLIENTS_PER_ROOM = 60;
 export const MAX_FISH_PER_OWNER = 3;
+export const MAX_FISH_GROWTH = 1.8;
+export const FEED_GROWTH = 0.07;
 export const MAX_TEXTURE_BYTES = 80 * 1024;

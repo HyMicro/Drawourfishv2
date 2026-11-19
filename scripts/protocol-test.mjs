@@ -92,6 +92,10 @@ A.send({ type: 'EMOTE_SEND', targetFishId: fish.id, emote: 'HEART' });
 const emoteB = await B.next((message) => message.type === 'EMOTE_EVENT');
 console.log('EMOTE_BROADCAST', emoteB.emote, emoteB.targetFishId);
 
+A.send({ type: 'FEED_CONSUMED', pelletId: 'pellet-growth', fishId: fish.id });
+const growthB = await B.next((message) => message.type === 'FISH_GROWTH');
+console.log('GROWTH_BROADCAST', growthB.fishId === fish.id, growthB.growth);
+
 A.send({
   type: 'FISH_SPAWN',
   fish: { ...fish, id: 'fish-bad-0002', textureData: 'data:image/webp;base64,AAAA' },
@@ -118,7 +122,8 @@ C.send({ type: 'HELLO', ownerId: 'owner-aaaa-1111' });
 const snapC = await C.next((message) => message.type === 'ROOM_SNAPSHOT');
 const persistedInOcean = (snapC.fishes ?? []).some((item) => item.id === fish.id);
 const persistedInCollection = (snapC.myFishes ?? []).some((item) => item.id === fish.id);
-console.log('BACKEND_PERSISTENCE', JSON.stringify({ persistedInOcean, persistedInCollection }));
+const persistedGrowth = (snapC.myFishes ?? []).find((item) => item.id === fish.id)?.growth ?? null;
+console.log('BACKEND_PERSISTENCE', JSON.stringify({ persistedInOcean, persistedInCollection, persistedGrowth }));
 
 C.send({ type: 'FISH_DELETE', fishId: fish.id });
 const deleteDespawn = await B.next(

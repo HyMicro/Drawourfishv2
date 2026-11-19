@@ -14,7 +14,7 @@ import {
   type Ticker,
 } from 'pixi.js';
 import type { EmoteKind, FishEntity, FishState, FishSync } from '../../shared/protocol';
-import { EMOTES } from '../../shared/protocol';
+import { EMOTES, FEED_GROWTH, MAX_FISH_GROWTH } from '../../shared/protocol';
 import { getTemplate } from '../data/templates';
 import { sound } from '../lib/audio';
 import { clamp, createId, easeOutCubic, randomBetween, smoothNoise } from '../lib/utils';
@@ -30,6 +30,8 @@ interface Swimmer {
   texture: Texture | null;
   meshGeometry: MeshGeometry | null;
   size: number;
+  baseSize: number;
+  growth: number;
   /** How much the local mesh space (384px) is scaled to reach the display size. */
   displayScale: number;
   x: number;
@@ -56,6 +58,7 @@ interface Swimmer {
   remoteTargetX: number;
   remoteTargetY: number;
   lastRemoteAt: number;
+  remoteIdle: boolean;
 }
 
 interface Pellet {
@@ -598,7 +601,9 @@ export class AquariumEngine {
         return;
       }
       const template = getTemplate(fish.templateId);
-      const size = Math.max(92, 156 * template.size * this.baseScale());
+      const growth = clamp(fish.growth ?? 1, 1, MAX_FISH_GROWTH);
+      const baseSize = Math.max(92, 156 * template.size * this.baseScale());
+      const size = baseSize * growth;
       const root = new Container();
       let display: Mesh | Sprite;
       let meshGeometry: MeshGeometry | null = null;
@@ -670,6 +675,8 @@ export class AquariumEngine {
         texture,
         meshGeometry,
         size,
+        baseSize,
+        growth,
         displayScale: template.motion === 'drift' ? 1 : size / ROPE_TEXTURE_SIZE,
         x,
         y,
@@ -694,7 +701,8 @@ export class AquariumEngine {
         isBot,
         remoteTargetX: x,
         remoteTargetY: y,
-        lastRemoteAt: performance.now(),
+        lastRemoteAt: 0,
+        remoteIdle: !isMine && !isBot,
       };
       root.visible = !swimmer.hidden;
       swimmer.label = this.createNameLabel(fish.name);
@@ -760,7 +768,7 @@ export class AquariumEngine {
     const remote = !swimmer.isMine && !swimmer.isBot;
 
     let moved = 0;
-    if (remote) {
+    if (remote && !swimmer.remoteIdle) {
       const tx = swimmer.remoteTargetX;
       const ty = swimmer.remoteTargetY;
       const k = 1 - Math.exp(-8.5 * dt);
@@ -779,8 +787,11 @@ export class AquariumEngine {
       }
       swimmer.speed += (moved / Math.max(dt, 0.001) - swimmer.speed) * Math.min(1, dt * 6);
       if (now - swimmer.lastRemoteAt > 5) {
-        swimmer.remoteTargetX = clamp(swimmer.x + Math.sin(now * 0.3 + swimmer.seed) * 90, 50, width - 50);
-        swimmer.remoteTargetY = clamp(swimmer.y + Math.cos(now * 0.24 + swimmer.seed) * 50, height * 0.16, height * 0.86);
+        // The owner closed the tab or lost connection. Keep their fish alive
+        // by switching to the same autonomous wander used by local fish.
+        swimmer.remoteIdle = true;
+        swimmer.state = 'WANDER';
+        swimmer.retargetAt = 0;
       }
     } else {
       this.updateLocalBehavior(swimmer, dt, now);
@@ -928,6 +939,7 @@ export class AquariumEngine {
 
   private eatPellet(pellet: Pellet, swimmer: Swimmer) {
     this.removePellet(pellet.id);
+    this.applyGrowth(swimmer.fish.id, swimmer.growth + FEED_GROWTH);
     swimmer.squash = 1;
     this.emitEmoji('❤️', swimmer.x, swimmer.y - swimmer.size * 0.3, 1.5);
     this.burstBubbles(swimmer.x, swimmer.y, 4, 0.4);
@@ -1059,8 +1071,26 @@ export class AquariumEngine {
       );
       swimmer.state = update.state;
       swimmer.facing = update.facing === -1 ? -1 : 1;
-      swimmer.lastRemoteAt = performance.now();
+      swimmer.lastRemoteAt = this.time;
+      swimmer.remoteIdle = false;
     }
+  }
+
+  applyGrowth(fishId: string, value: number) {
+    const swimmer = this.swimmers.get(fishId);
+    if (!swimmer) return;
+    const growth = clamp(value, 1, MAX_FISH_GROWTH);
+    if (growth <= swimmer.growth + 0.001) return;
+    swimmer.growth = growth;
+    swimmer.fish.growth = growth;
+    swimmer.size = swimmer.baseSize * growth;
+    if (swimmer.display instanceof Sprite) {
+      swimmer.display.width = swimmer.size;
+      swimmer.display.height = swimmer.size;
+    } else {
+      swimmer.displayScale = swimmer.size / ROPE_TEXTURE_SIZE;
+    }
+    swimmer.squash = 0.8;
   }
 
   getLocalSyncs(): FishSync[] {

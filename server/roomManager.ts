@@ -7,6 +7,8 @@ import {
   MAX_CLIENTS_PER_ROOM,
   MAX_FISH_PER_OWNER,
   MAX_TEXTURE_BYTES,
+  FEED_GROWTH,
+  MAX_FISH_GROWTH,
   ROOM_CAPACITY,
   type ClientMessage,
   type EmoteKind,
@@ -255,6 +257,7 @@ export function sanitizeFish(client: Client, input: unknown): FishEntity | strin
     templateId: raw.templateId as FishTemplateId,
     textureData: raw.textureData as string,
     createdAt: typeof raw.createdAt === 'number' ? raw.createdAt : Date.now(),
+    growth: Math.min(MAX_FISH_GROWTH, Math.max(1, Number(raw.growth) || 1)),
     transform: {
       x: clamp01(transform.x),
       y: clamp01(transform.y),
@@ -363,7 +366,14 @@ function handleFeedDrop(client: Client, message: Extract<ClientMessage, { type: 
 function handleFeedConsumed(client: Client, message: Extract<ClientMessage, { type: 'FEED_CONSUMED' }>) {
   if (!client.room) return;
   if (typeof message.pelletId !== 'string' || typeof message.fishId !== 'string') return;
-  sendRoom(client.room, { type: 'FEED_CONSUMED', pelletId: message.pelletId, fishId: message.fishId });
+  const fish = room.fishes.get(message.fishId);
+  if (fish) {
+    const growth = Math.min(MAX_FISH_GROWTH, (fish.growth ?? 1) + FEED_GROWTH);
+    fish.growth = growth;
+    persistSoon();
+    sendRoom(room, { type: 'FISH_GROWTH', fishId: fish.id, growth });
+  }
+  sendRoom(room, { type: 'FEED_CONSUMED', pelletId: message.pelletId, fishId: message.fishId });
 }
 
 function handleGlassTap(client: Client, message: Extract<ClientMessage, { type: 'GLASS_TAP' }>) {

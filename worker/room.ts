@@ -4,6 +4,8 @@ import {
   MAX_CLIENTS_PER_ROOM,
   MAX_FISH_PER_OWNER,
   MAX_TEXTURE_BYTES,
+  FEED_GROWTH,
+  MAX_FISH_GROWTH,
   ROOM_CAPACITY,
   type ClientMessage,
   type EmoteKind,
@@ -291,6 +293,7 @@ export class ReefRoom {
       templateId: raw.templateId as FishTemplateId,
       textureData: raw.textureData as string,
       createdAt: typeof raw.createdAt === 'number' ? raw.createdAt : Date.now(),
+      growth: Math.min(MAX_FISH_GROWTH, Math.max(1, Number(raw.growth) || 1)),
       transform: {
         x: clamp01(transform.x),
         y: clamp01(transform.y),
@@ -460,14 +463,22 @@ export class ReefRoom {
           y: clamp01(message.y, 0.1),
         });
         break;
-      case 'FEED_CONSUMED':
+      case 'FEED_CONSUMED': {
         if (!client.room || typeof message.pelletId !== 'string' || typeof message.fishId !== 'string') return;
+        const fish = client.room.fishes.get(message.fishId);
+        if (fish) {
+          const growth = Math.min(MAX_FISH_GROWTH, (fish.growth ?? 1) + FEED_GROWTH);
+          fish.growth = growth;
+          await this.state.storage.put(fishKey(fish.ownerId, fish.id), fish);
+          sendRoom(client.room, { type: 'FISH_GROWTH', fishId: fish.id, growth });
+        }
         sendRoom(client.room, {
           type: 'FEED_CONSUMED',
           pelletId: message.pelletId,
           fishId: message.fishId,
         });
         break;
+      }
       case 'GLASS_TAP':
         if (!client.room) return;
         sendRoom(client.room, { type: 'GLASS_TAP', x: clamp01(message.x), y: clamp01(message.y) }, client);
@@ -477,7 +488,7 @@ export class ReefRoom {
         sendRoom(client.room, { type: 'EMOTE_EVENT', targetFishId: message.targetFishId, emote: message.emote }, client);
         break;
       case 'PING':
-        send(client, { type: 'PONG' });
+        send(client, { type: 'PONG', version: 'growth-v1' });
         break;
       default:
         break;

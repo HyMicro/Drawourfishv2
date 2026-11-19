@@ -747,6 +747,7 @@ export function DrawingStudio() {
           templateId: templateRef.current.id,
           textureData: exported.dataUrl,
           createdAt: Date.now(),
+          growth: 1,
           transform: {
             x: side ? 0.14 : 0.86,
             y: randomBetween(0.3, 0.66),

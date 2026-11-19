@@ -53,6 +53,7 @@ interface GameStore extends UIState {
   applySnapshot: (myFishes: FishEntity[], fishes: FishEntity[], clientId: string, onlineCount: number) => void;
   applyRemoteSpawn: (fish: FishEntity) => void;
   applyRemoteDespawn: (fishId: string) => void;
+  applyGrowth: (fishId: string, growth: number) => void;
   hideFish: (fishId: string) => void;
   restoreHidden: () => void;
 
@@ -314,6 +315,18 @@ export const useGameStore = create<GameStore>()((set, get) => ({
       hiddenIds: state.hiddenIds.filter((id) => id !== fishId),
       emoteTarget: state.emoteTarget?.fishId === fishId ? null : state.emoteTarget,
     });
+  },
+
+  applyGrowth: (fishId, growth) => {
+    const state = get();
+    const collection = state.collection.map((fish) =>
+      fish.id === fishId ? { ...fish, growth } : fish,
+    );
+    const live = state.liveFishes[fishId];
+    const liveFishes = live
+      ? { ...state.liveFishes, [fishId]: { ...live, growth } }
+      : state.liveFishes;
+    set({ collection, liveFishes });
   },
 
   hideFish: (fishId) => {

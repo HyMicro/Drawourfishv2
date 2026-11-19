@@ -57,6 +57,10 @@ export default function App() {
           case 'EMOTE_EVENT':
             getEngine()?.playEmote(message.targetFishId, message.emote);
             break;
+          case 'FISH_GROWTH':
+            store.applyGrowth(message.fishId, message.growth);
+            getEngine()?.applyGrowth(message.fishId, message.growth);
+            break;
           case 'ERROR':
             store.addToast(message.message, 'warn');
             break;

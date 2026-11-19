@@ -28,6 +28,8 @@ Frontend disajikan dari Cloudflare Pages; backend WebSocket berjalan di Cloudfla
 - **Siluet ikan parallax** diekstrak sebagai aset transparan terpisah; bergerak pelan kiri/kanan dengan kedalaman berbeda.
 - Mesh 16 segmen untuk gerak berenang organik; mode bebas memakai sprite melayang.
 - Pakan bersama, riak ketuk kaca, emote (❤️ ✨ 🫧 🎵), dan long-press untuk menyembunyikan ikan.
+- **Ikan tumbuh saat makan**: setiap pelet menambah ukuran hingga batas 1,8×; pertumbuhan tersimpan di backend.
+- **Ikan tetap berenang** walau pemiliknya menutup tab: setelah sync berhenti, ikan beralih ke gerak otonom dan terus menjelajah laut.
 - Sync 10 Hz + interpolasi; feed/tap/emote realtime.
 - **Ikan disimpan di backend**: ikan tetap ada setelah pemain menutup tab/reload, tersimpan di Durable Object storage (Cloudflare) atau JSON store (server Node). Tidak ada tekstur ikan di localStorage/IndexedDB.
 - Local Reef otomatis saat offline, dengan ikan AI.
