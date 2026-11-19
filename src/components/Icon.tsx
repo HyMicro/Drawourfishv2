@@ -15,6 +15,7 @@ export type IconName =
   | 'undo'
   | 'trash'
   | 'brush'
+  | 'blend'
   | 'fill'
   | 'eraser'
   | 'download'
@@ -54,6 +55,7 @@ const ART: Partial<Record<IconName, string>> = {
   undo: '/icons/undo.webp',
   trash: '/icons/hapus.webp',
   brush: '/icons/kuas.webp',
+  blend: '/icons/pipet.webp',
   fill: '/icons/ember.webp',
   eraser: '/icons/penghapus.webp',
   download: '/icons/unduh.webp',
@@ -144,6 +146,13 @@ const PATHS: Record<IconName, ReactNode> = {
     <>
       <path d="M14.6 4.4 19.6 9.4 10.8 18.2 5.8 13.2 14.6 4.4Z" />
       <path d="m4 20 1.8-6.8 5 5L4 20Z" />
+    </>
+  ),
+  blend: (
+    <>
+      <path d="M9 4.5h6l1.2 9.2a4.2 4.2 0 0 1-8.4 0L9 4.5Z" />
+      <path d="M9.6 10h4.8" />
+      <path d="M17 15.5c1.7 1.2 2.5 2.3 2.5 3.4a2.5 2.5 0 0 1-5 0c0-1.1.8-2.2 2.5-3.4Z" />
     </>
   ),
   fill: (

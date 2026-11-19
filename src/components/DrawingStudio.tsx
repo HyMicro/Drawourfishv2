@@ -11,7 +11,7 @@ import {
   type TemplateImages,
 } from '../lib/fishArt';
 import { sound } from '../lib/audio';
-import { createId, hslFromHex, hslToHex, randomBetween } from '../lib/utils';
+import { clamp, createId, hslFromHex, hslToHex, randomBetween } from '../lib/utils';
 import { normalizeFishName, randomFishName } from '../lib/names';
 import { useGameStore } from '../store/useGameStore';
 import type { FishEntity, FishTemplateId } from '../../shared/protocol';
@@ -23,7 +23,7 @@ const MAX_HISTORY = 15;
 const FREE_ID: FishTemplateId = 'free';
 const TOOL_SIZES = { min: 6, max: 64 };
 
-type Tool = 'brush' | 'fill' | 'eraser';
+type Tool = 'brush' | 'fill' | 'eraser' | 'blend';
 type BrushStyle = 'marker' | 'pencil' | 'crayon' | 'airbrush';
 type BlendMode =
   | 'source-over'
@@ -265,6 +265,8 @@ export function DrawingStudio() {
   const paintRef = useRef<HTMLCanvasElement | null>(null);
   const strokeRef = useRef<HTMLCanvasElement | null>(null);
   const compositeRef = useRef<HTMLCanvasElement | null>(null);
+  const blendSourceRef = useRef<HTMLCanvasElement | null>(null);
+  const blendScratchRef = useRef<HTMLCanvasElement | null>(null);
   const strokeBlendRef = useRef<BlendMode>('source-over');
   const strokeDirtyRef = useRef(false);
   const maskRef = useRef<HTMLCanvasElement | null>(null);
@@ -405,6 +407,16 @@ export function DrawingStudio() {
     composite.width = SIZE;
     composite.height = SIZE;
     compositeRef.current = composite;
+
+    const blendSource = document.createElement('canvas');
+    blendSource.width = SIZE;
+    blendSource.height = SIZE;
+    blendSourceRef.current = blendSource;
+
+    const blendScratch = document.createElement('canvas');
+    blendScratch.width = SIZE;
+    blendScratch.height = SIZE;
+    blendScratchRef.current = blendScratch;
 
     const mask = document.createElement('canvas');
     mask.width = SIZE;
@@ -570,6 +582,36 @@ export function DrawingStudio() {
     [],
   );
 
+  const smudge = (from: { x: number; y: number }, to: { x: number; y: number }) => {
+    const ctx = paintContext();
+    const source = blendSourceRef.current;
+    const scratch = blendScratchRef.current;
+    if (!ctx || !source || !scratch) return;
+    const size = Math.round(clamp(brushSize, 8, 96));
+    const radius = size / 2;
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    const sx = Math.round(clamp(to.x - radius - dx * 0.85, 0, SIZE - size));
+    const sy = Math.round(clamp(to.y - radius - dy * 0.85, 0, SIZE - size));
+    const sctx = scratch.getContext('2d');
+    if (!sctx) return;
+    sctx.clearRect(0, 0, size, size);
+    sctx.globalCompositeOperation = 'source-over';
+    sctx.drawImage(source, sx, sy, size, size, 0, 0, size, size);
+    sctx.globalCompositeOperation = 'destination-in';
+    const mask = sctx.createRadialGradient(radius, radius, radius * 0.16, radius, radius, radius);
+    mask.addColorStop(0, 'rgba(255, 255, 255, 1)');
+    mask.addColorStop(0.55, 'rgba(255, 255, 255, 0.85)');
+    mask.addColorStop(1, 'rgba(255, 255, 255, 0)');
+    sctx.fillStyle = mask;
+    sctx.fillRect(0, 0, size, size);
+    sctx.globalCompositeOperation = 'source-over';
+    ctx.save();
+    ctx.globalAlpha = 0.62;
+    ctx.drawImage(scratch, 0, 0, size, size, to.x - radius, to.y - radius, size, size);
+    ctx.restore();
+  };
+
   const handlePointerDown = (event: React.PointerEvent<HTMLCanvasElement>) => {
     if (saving) return;
     event.preventDefault();
@@ -596,6 +638,23 @@ export function DrawingStudio() {
       }
       drawingRef.current = false;
       pointerRef.current = null;
+      scheduleRender();
+      return;
+    }
+
+    if (tool === 'blend') {
+      pushHistory();
+      const source = blendSourceRef.current;
+      if (source) {
+        const sctx = source.getContext('2d');
+        if (sctx) {
+          sctx.clearRect(0, 0, SIZE, SIZE);
+          sctx.drawImage(ctx.canvas, 0, 0);
+        }
+      }
+      clearStroke();
+      sound.brushStart();
+      sound.brushMove(0.2);
       scheduleRender();
       return;
     }
@@ -636,6 +695,13 @@ export function DrawingStudio() {
     const last = lastRef.current;
     const distance = Math.hypot(point.x - last.x, point.y - last.y);
     if (distance < 0.6) return;
+    if (tool === 'blend') {
+      smudge(last, point);
+      midRef.current = point;
+      lastRef.current = point;
+      scheduleRender();
+      return;
+    }
     const ctx = paintContext();
     if (!ctx) return;
     const mid = { x: (last.x + point.x) / 2, y: (last.y + point.y) / 2 };
@@ -660,7 +726,7 @@ export function DrawingStudio() {
 
   const finishStroke = (event: React.PointerEvent<HTMLCanvasElement>) => {
     if (pointerRef.current !== event.pointerId) return;
-    if (drawingRef.current && tool !== 'fill') {
+    if (drawingRef.current && tool !== 'fill' && tool !== 'blend') {
       const ctx = paintContext();
       const sctx = strokeContext();
       if (ctx) {
@@ -673,6 +739,8 @@ export function DrawingStudio() {
         }
         scheduleRender();
       }
+      sound.brushStop();
+    } else if (drawingRef.current && tool === 'blend') {
       sound.brushStop();
     }
     drawingRef.current = false;
@@ -781,7 +849,7 @@ export function DrawingStudio() {
     else closeStudio();
   };
 
-  const cursorColor = useMemo(() => (tool === 'eraser' ? '#ffffff' : color), [tool, color]);
+  const cursorColor = useMemo(() => (tool === 'eraser' || tool === 'blend' ? '#ffffff' : color), [tool, color]);
 
   return (
     <div
@@ -851,7 +919,11 @@ export function DrawingStudio() {
               {isFree && <span className="free-badge">✏️ Gambar bebas</span>}
             </div>
             <p className="canvas-note">
-              {isFree ? 'Semua coretanmu jadi stiker ikan.' : 'Warnai sesukamu — garis tetap rapi.'}
+              {tool === 'blend'
+                ? 'Gosok kuas blend untuk mencampur warna di kanvas.'
+                : isFree
+                  ? 'Semua coretanmu jadi stiker ikan.'
+                  : 'Warnai sesukamu — garis tetap rapi.'}
             </p>
           </div>
 
@@ -886,12 +958,16 @@ export function DrawingStudio() {
             <section className="tool-block">
               <div className="block-head">
                 <h3>Alat</h3>
-                <span>{tool === 'brush' ? BRUSH_STYLES.find((style) => style.id === brushStyle)?.label : tool === 'fill' ? 'Ember' : 'Penghapus'}</span>
+                <span>{tool === 'brush' ? BRUSH_STYLES.find((style) => style.id === brushStyle)?.label : tool === 'fill' ? 'Ember' : tool === 'blend' ? 'Blend' : 'Penghapus'}</span>
               </div>
               <div className="tool-row">
                 <button type="button" className={`tool-chip ${tool === 'brush' ? 'active' : ''}`} onClick={() => setTool('brush')} aria-pressed={tool === 'brush'}>
                   <Icon name="marker" size={22} />
                   <span>Kuas</span>
+                </button>
+                <button type="button" className={`tool-chip ${tool === 'blend' ? 'active' : ''}`} onClick={() => setTool('blend')} aria-pressed={tool === 'blend'}>
+                  <Icon name="blend" size={22} />
+                  <span>Blend</span>
                 </button>
                 <button type="button" className={`tool-chip ${tool === 'fill' ? 'active' : ''}`} onClick={() => setTool('fill')} aria-pressed={tool === 'fill'}>
                   <Icon name="fill" size={22} />
@@ -991,7 +1067,7 @@ export function DrawingStudio() {
                 </span>
               </div>
               <div className="blend-row">
-                <span>Blend</span>
+                <span>Mode</span>
                 {BLEND_MODES.map((mode) => (
                   <button
                     key={mode.id}

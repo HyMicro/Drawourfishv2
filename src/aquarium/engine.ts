@@ -194,6 +194,7 @@ export class AquariumEngine {
   private backgroundSprite: Sprite | null = null;
   private backgroundTexture: Texture | null = null;
   private raysSprite: Sprite | null = null;
+  private raysSpriteB: Sprite | null = null;
   private nightShade: Sprite | null = null;
   private timeOverlay: Sprite | null = null;
   private timeOverlayTexture: Texture | null = null;
@@ -341,52 +342,83 @@ export class AquariumEngine {
     if (!this.app) return;
     const width = Math.max(320, this.width);
     const height = Math.max(320, this.height);
-    const canvas = document.createElement('canvas');
-    canvas.width = Math.min(1280, width);
-    canvas.height = Math.min(720, height);
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    const rw = canvas.width;
-    const rh = canvas.height;
-    for (let i = 0; i < 5; i++) {
-      const x = rw * (0.2 + i * 0.15);
-      const spread = rw * (0.035 + (i % 3) * 0.018);
-      const beam = ctx.createLinearGradient(x, 0, x + rh * 0.3, rh);
-      beam.addColorStop(0, 'rgba(232, 255, 255, 0.34)');
-      beam.addColorStop(0.45, 'rgba(215, 251, 255, 0.08)');
-      beam.addColorStop(1, 'rgba(215, 251, 255, 0)');
-      ctx.fillStyle = beam;
-      ctx.beginPath();
-      ctx.moveTo(x - spread, 0);
-      ctx.lineTo(x + spread, 0);
-      ctx.lineTo(x + rh * 0.38 + spread, rh);
-      ctx.lineTo(x + rh * 0.38 - spread, rh);
-      ctx.closePath();
-      ctx.fill();
-    }
+    const makeBeams = (offset: number, spreadScale: number, alpha: number) => {
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.min(1280, width);
+      canvas.height = Math.min(720, height);
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return null;
+      const rw = canvas.width;
+      const rh = canvas.height;
+      for (let i = 0; i < 5; i++) {
+        const x = rw * (0.16 + offset + i * 0.15);
+        const spread = rw * (0.028 + (i % 3) * 0.014) * spreadScale;
+        const drift = (i % 2 === 0 ? 1 : -1) * rh * 0.035;
+        const beam = ctx.createLinearGradient(x, 0, x + rh * 0.34 + drift, rh);
+        beam.addColorStop(0, `rgba(232, 255, 255, ${alpha})`);
+        beam.addColorStop(0.45, `rgba(215, 251, 255, ${alpha * 0.22})`);
+        beam.addColorStop(1, 'rgba(215, 251, 255, 0)');
+        ctx.fillStyle = beam;
+        ctx.beginPath();
+        ctx.moveTo(x - spread, 0);
+        ctx.lineTo(x + spread, 0);
+        ctx.lineTo(x + rh * 0.4 + drift + spread, rh);
+        ctx.lineTo(x + rh * 0.4 + drift - spread, rh);
+        ctx.closePath();
+        ctx.fill();
+      }
+      return Texture.from(canvas);
+    };
     if (this.raysSprite) {
       this.app.stage.removeChild(this.raysSprite);
       this.raysSprite.texture.destroy(true);
       this.raysSprite.destroy();
+      this.raysSprite = null;
     }
-    const texture = Texture.from(canvas);
-    this.raysSprite = new Sprite(texture);
-    this.raysSprite.width = width;
-    this.raysSprite.height = height;
-    this.raysSprite.blendMode = 'screen';
-    this.raysSprite.alpha = 0.2;
-    this.app.stage.addChildAt(this.raysSprite, 1);
+    if (this.raysSpriteB) {
+      this.app.stage.removeChild(this.raysSpriteB);
+      this.raysSpriteB.texture.destroy(true);
+      this.raysSpriteB.destroy();
+      this.raysSpriteB = null;
+    }
+    const textureA = makeBeams(0, 1, 0.34);
+    const textureB = makeBeams(0.08, 0.85, 0.24);
+    if (!textureA || !textureB) return;
+    const spriteA = new Sprite(textureA);
+    spriteA.anchor.set(0.5);
+    spriteA.width = width * 1.05;
+    spriteA.height = height * 1.05;
+    spriteA.position.set(width / 2, height / 2);
+    spriteA.blendMode = 'screen';
+    spriteA.alpha = 0.16;
+    this.raysSprite = spriteA;
+    this.app.stage.addChildAt(spriteA, 1);
+
+    const spriteB = new Sprite(textureB);
+    spriteB.anchor.set(0.5);
+    spriteB.width = width * 1.06;
+    spriteB.height = height * 1.06;
+    spriteB.position.set(width / 2, height / 2);
+    spriteB.blendMode = 'screen';
+    spriteB.alpha = 0.08;
+    this.raysSpriteB = spriteB;
+    this.app.stage.addChildAt(spriteB, 2);
   }
 
   private buildTimeLayers() {
     if (!this.app) return;
+    const baseIndex = this.raysSpriteB
+      ? this.app.stage.getChildIndex(this.raysSpriteB) + 1
+      : this.raysSprite
+        ? this.app.stage.getChildIndex(this.raysSprite) + 1
+        : 2;
     if (!this.nightShade) {
       const shade = new Sprite(Texture.WHITE);
       shade.tint = 0x14264a;
       shade.blendMode = 'multiply';
       shade.alpha = 0;
       this.nightShade = shade;
-      this.app.stage.addChildAt(shade, 2);
+      this.app.stage.addChildAt(shade, baseIndex);
     }
     if (!this.timeOverlay) {
       const canvas = document.createElement('canvas');
@@ -397,7 +429,7 @@ export class AquariumEngine {
       const overlay = new Sprite(this.timeOverlayTexture);
       overlay.blendMode = 'soft-light';
       this.timeOverlay = overlay;
-      this.app.stage.addChildAt(overlay, 3);
+      this.app.stage.addChildAt(overlay, baseIndex + 1);
     }
     if (!this.moonSprite) {
       this.moonTexture = makeMoonTexture();
@@ -406,7 +438,7 @@ export class AquariumEngine {
       moon.blendMode = 'screen';
       moon.alpha = 0;
       this.moonSprite = moon;
-      this.app.stage.addChildAt(moon, 4);
+      this.app.stage.addChildAt(moon, baseIndex + 2);
     }
     this.layoutTimeLayers();
   }
@@ -857,8 +889,16 @@ export class AquariumEngine {
     const now = this.time;
 
     if (this.raysSprite) {
-      this.raysSprite.alpha = (0.16 + Math.sin(now * 0.22) * 0.045) * this.timeRays;
-      this.raysSprite.x = Math.sin(now * 0.08) * 14;
+      this.raysSprite.x = width / 2 + Math.sin(now * 0.11) * width * 0.018 + Math.sin(now * 0.27) * 5;
+      this.raysSprite.y = height / 2 + Math.sin(now * 0.07) * 8;
+      this.raysSprite.rotation = Math.sin(now * 0.06) * 0.012;
+      this.raysSprite.alpha = (0.14 + Math.sin(now * 0.24) * 0.035) * this.timeRays;
+    }
+    if (this.raysSpriteB) {
+      this.raysSpriteB.x = width / 2 + Math.sin(now * 0.08 + 1.7) * width * 0.025;
+      this.raysSpriteB.y = height / 2 + Math.sin(now * 0.05 + 0.6) * 10;
+      this.raysSpriteB.rotation = Math.sin(now * 0.045 + 1.1) * 0.018;
+      this.raysSpriteB.alpha = (0.075 + Math.sin(now * 0.19 + 2.2) * 0.025) * this.timeRays;
     }
     this.updateBackgroundFish(dt);
 
@@ -1391,6 +1431,7 @@ export class AquariumEngine {
     this.bubbleTexture?.destroy(true);
     this.backgroundTexture?.destroy(true);
     this.raysSprite?.texture.destroy(true);
+    this.raysSpriteB?.texture.destroy(true);
     this.timeOverlayTexture?.destroy(true);
     this.moonTexture?.destroy(true);
     this.timeOverlayCanvas = null;

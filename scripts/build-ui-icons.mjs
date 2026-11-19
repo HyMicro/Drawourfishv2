@@ -25,6 +25,7 @@ const icons = [
   { name: 'ember', box: { x: 170, y: 270, w: 103, h: 90 } },
   { name: 'penghapus', box: { x: 297, y: 270, w: 103, h: 90 } },
   { name: 'undo', box: { x: 430, y: 280, w: 90, h: 78 } },
+  { name: 'pipet', box: { x: 664, y: 270, w: 96, h: 90 } },
   { name: 'suara', box: { x: 978, y: 674, w: 70, h: 64 } },
   { name: 'musik', box: { x: 886, y: 674, w: 70, h: 64 } },
   { name: 'unduh', box: { x: 1338, y: 674, w: 76, h: 66 } },

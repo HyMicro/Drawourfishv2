@@ -16,6 +16,7 @@ Frontend disajikan dari Cloudflare Pages; backend WebSocket berjalan di Cloudfla
 - **4 gaya kuas**: Spidol, Pensil, Krayon, Semprot/airbrush.
 - **Warna lengkap**: slider Hue, Saturasi, dan Kecerahan + **24 swatch** + kode HEX dan nilai **RGB**.
 - **12 mode blend**: Normal, Multiply, Screen, Overlay, Darken, Lighten, Dodge, Soft, Hue, Saturate, Color, Luminance. Blend berlaku untuk kuas dan ember cat.
+- **Tool Blend/Smudge**: gosok di kanvas untuk mencampur warna yang sudah ada, bukan memilih mode warna.
 - Ember cat, penghapus, undo 15 langkah, reset, ukuran kuas 6–64 px.
 - Nama acak lucu + dadu; ekspor WebP 384×384 (maks 80 KB).
 - Setiap ikan mendapat pinggiran putih dan outline navy seperti stiker dari sheet template terbaru.
@@ -27,6 +28,7 @@ Frontend disajikan dari Cloudflare Pages; backend WebSocket berjalan di Cloudfla
 - Background laut dari gambar referensi yang sudah dibersihkan dari ikan, dengan sinar, gelembung, dan partikel halus.
 - **Latar mengikuti waktu Indonesia** (WIB/WITA/WIT): pagi keemasan, siang jernih, sore hangat, malam biru dengan bulan. Warna bertransisi halus memakai lapisan blend soft-light/overlay/multiply.
 - **Siluet ikan parallax** diekstrak sebagai aset transparan terpisah; bergerak pelan kiri/kanan dengan kedalaman berbeda.
+- **Sinar bawah air bergerak**: dua lapisan cahaya bergeser, berputar halus, dan berdenyut pelan mengikuti suasana waktu.
 - Mesh 16 segmen untuk gerak berenang organik; mode bebas memakai sprite melayang.
 - Pakan bersama, riak ketuk kaca, emote (❤️ ✨ 🫧 🎵), dan long-press untuk menyembunyikan ikan.
 - **Ikan tumbuh saat makan**: setiap pelet menambah ukuran hingga batas 1,8×; pertumbuhan tersimpan di backend.
