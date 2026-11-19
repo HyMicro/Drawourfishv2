@@ -100,6 +100,19 @@ async function desktop() {
   await page.locator('.photo-topbar .icon-btn').click();
   await page.waitForTimeout(500);
 
+  // Remove the persistent test fish from the global ocean.
+  await page.locator('.dock-item').filter({ hasText: 'Ikanku' }).click();
+  await page.waitForSelector('.collection-panel');
+  await page.waitForTimeout(400);
+  const testCard = page.locator('.fish-card').filter({ hasText: 'Mochi Uji' }).first();
+  if (await testCard.count()) {
+    await testCard.locator('.glass-btn.danger').click();
+    await testCard.locator('.delete-confirm .mini-btn.danger').click();
+    await page.waitForTimeout(500);
+  }
+  await page.locator('.collection-panel .sheet-header .icon-btn').click();
+  await page.waitForTimeout(300);
+
   // Textures and scene sanity check.
   const sanity = await page.evaluate(() => {
     const canvas = document.querySelector('.aquarium-root canvas');

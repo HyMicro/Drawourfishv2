@@ -156,6 +156,10 @@ class NetworkClient {
     this.send({ type: 'FISH_DESPAWN', fishId });
   }
 
+  deleteFish(fishId: string) {
+    this.send({ type: 'FISH_DELETE', fishId });
+  }
+
   sendSync(updates: FishSync[]) {
     if (updates.length === 0) return;
     this.send({ type: 'FISH_SYNC_BATCH', updates });

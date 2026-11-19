@@ -34,13 +34,23 @@ async function findOrangeFish() {
     }
   }
   if (points.length < 40) return null;
-  let sx = 0;
-  let sy = 0;
+  // Use the densest 32px region instead of averaging every orange pixel;
+  // averaging can land between two fish or on a coral in the background.
+  const buckets = new Map();
   for (const [x, y] of points) {
-    sx += x;
-    sy += y;
+    const key = `${Math.floor(x / 32)}:${Math.floor(y / 32)}`;
+    const bucket = buckets.get(key) ?? { x: 0, y: 0, count: 0 };
+    bucket.x += x;
+    bucket.y += y;
+    bucket.count += 1;
+    buckets.set(key, bucket);
   }
-  return { x: sx / points.length, y: sy / points.length, count: points.length };
+  let best = null;
+  for (const bucket of buckets.values()) {
+    if (!best || bucket.count > best.count) best = bucket;
+  }
+  if (!best) return null;
+  return { x: best.x / best.count, y: best.y / best.count, count: points.length };
 }
 
 let opened = false;

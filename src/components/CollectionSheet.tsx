@@ -26,7 +26,7 @@ export function CollectionSheet() {
       <section className="glass-panel sheet-panel collection-panel" role="dialog" aria-modal="true" aria-label="Ikan milikku">
         <header className="sheet-header">
           <div>
-            <p className="eyebrow">Koleksi pribadi · tersimpan di perangkat</p>
+            <p className="eyebrow">Koleksi pribadi · tersimpan di laut</p>
             <h2>Ikanku</h2>
           </div>
           <div className="header-actions">
@@ -147,7 +147,7 @@ export function CollectionSheet() {
 
         <footer className="sheet-footer">
           <span>
-            <Icon name="lock" size={14} /> Tersimpan di perangkat ini
+            <Icon name="lock" size={14} /> Tersimpan di server
           </span>
         </footer>
       </section>

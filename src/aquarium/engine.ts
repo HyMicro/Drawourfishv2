@@ -363,11 +363,15 @@ export class AquariumEngine {
       sprite.alpha = cfg.alpha;
       sprite.x = randomBetween(-width * 0.08, width * 1.08);
       sprite.y = cfg.y * height + randomBetween(-18, 18);
+      const direction: 1 | -1 = Math.random() > 0.5 ? 1 : -1;
+      // Every silhouette source looks right. Mirror it when it swims left so
+      // the head always leads the movement.
+      sprite.scale.x = Math.abs(sprite.scale.x) * direction;
       this.bgFishLayer.addChild(sprite);
       this.backgroundFish.push({
         sprite,
         speed: cfg.speed,
-        direction: Math.random() > 0.5 ? 1 : -1,
+        direction,
         baseY: cfg.y,
         sway: randomBetween(3, 10),
         phase: randomBetween(0, Math.PI * 2),

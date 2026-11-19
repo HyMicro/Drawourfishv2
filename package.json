@@ -1,7 +1,7 @@
 {
   "name": "draw-our-fish",
   "private": true,
-  "version": "2.2.0",
+  "version": "2.3.1",
   "type": "module",
   "description": "Draw Your Fish — a safe, real-time shared aquarium for kids.",
   "scripts": {
@@ -30,7 +30,6 @@
     "@fontsource-variable/fredoka": "^5.3.0",
     "@fontsource-variable/nunito": "^5.3.0",
     "express": "^4.21.2",
-    "idb-keyval": "^6.2.1",
     "pixi.js": "^8.6.6",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

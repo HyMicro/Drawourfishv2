@@ -176,6 +176,18 @@ p {
 /* Shared bits                                                      */
 /* ---------------------------------------------------------------- */
 
+.art-icon {
+  display: block;
+  object-fit: contain;
+  flex: 0 0 auto;
+  filter: drop-shadow(0 1px 1px rgba(80, 45, 20, 0.24));
+}
+
+.brand-mark .art-icon {
+  width: 31px !important;
+  height: 31px !important;
+}
+
 .glass-panel {
   position: relative;
   color: var(--ink);
@@ -351,9 +363,11 @@ p {
   place-items: center;
   border-radius: 50%;
   color: #fff;
-  background: var(--accent);
+  background: #fff8ec;
   border: 2.5px solid #fff;
-  box-shadow: 0 3px 0 #B76132;
+  box-shadow:
+    0 0 0 1.5px #e2c5a6,
+    0 3px 0 #c18c5c;
 }
 
 .brand-copy {
@@ -2594,6 +2608,11 @@ input[type="range"]::-moz-range-thumb {
   .brand-mark svg {
     width: 22px;
     height: 22px;
+  }
+
+  .brand-mark .art-icon {
+    width: 25px !important;
+    height: 25px !important;
   }
 
   .brand-copy strong {

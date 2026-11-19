@@ -9,17 +9,19 @@ fs.mkdirSync(OUT, { recursive: true });
 
 const src = PNG.sync.read(fs.readFileSync(SHEET));
 
+// New outline-only sheet (2 columns × 5 rows). Most fish face left; the
+// three right-facing fish and the front-facing puffer are left unflipped.
 const cells = [
-  { id: 'goldfish', label: 'Goldfish', accent: '#F2A35C', flip: true, box: { x: 160, y: 0, w: 430, h: 282 } },
-  { id: 'puffer', label: 'Pufferfish', accent: '#F4C95D', box: { x: 550, y: 0, w: 500, h: 282 } },
-  { id: 'bubblefish', label: 'Bubblefish', accent: '#7FCBD8', box: { x: 150, y: 292, w: 405, h: 214 } },
-  { id: 'clownfish', label: 'Clownfish', accent: '#EE7D54', flip: true, box: { x: 525, y: 290, w: 520, h: 222 } },
-  { id: 'tang', label: 'Blue Tang', accent: '#72A7E8', flip: true, box: { x: 155, y: 525, w: 415, h: 200 } },
-  { id: 'shark', label: 'Baby Shark', accent: '#89AFCB', flip: true, box: { x: 505, y: 525, w: 560, h: 220 } },
-  { id: 'babyfish', label: 'Baby Fish', accent: '#F3B59E', box: { x: 218, y: 738, w: 320, h: 140 } },
-  { id: 'spotfish', label: 'Spotfish', accent: '#A5C97A', flip: true, box: { x: 535, y: 730, w: 480, h: 182 } },
-  { id: 'grouper', label: 'Grouper', accent: '#8DC7A3', box: { x: 148, y: 928, w: 445, h: 384 } },
-  { id: 'angelfish', label: 'Angelfish', accent: '#A9B9F0', flip: true, box: { x: 525, y: 928, w: 465, h: 384 } },
+  { id: 'goldfish', label: 'Goldfish', accent: '#F2A35C', flip: true, box: { x: 180, y: 10, w: 308, h: 246 } },
+  { id: 'puffer', label: 'Pufferfish', accent: '#F4C95D', box: { x: 677, y: 2, w: 355, h: 258 } },
+  { id: 'bubblefish', label: 'Bubblefish', accent: '#7FCBD8', box: { x: 168, y: 282, w: 296, h: 223 } },
+  { id: 'clownfish', label: 'Clownfish', accent: '#EE7D54', flip: true, box: { x: 659, y: 286, w: 371, h: 221 } },
+  { id: 'tang', label: 'Blue Tang', accent: '#72A7E8', flip: true, box: { x: 158, y: 524, w: 306, h: 187 } },
+  { id: 'shark', label: 'Baby Shark', accent: '#89AFCB', flip: true, box: { x: 637, y: 508, w: 418, h: 205 } },
+  { id: 'babyfish', label: 'Baby Fish', accent: '#F3B59E', box: { x: 202, y: 748, w: 217, h: 145 } },
+  { id: 'spotfish', label: 'Spotfish', accent: '#A5C97A', flip: true, box: { x: 676, y: 730, w: 327, h: 197 } },
+  { id: 'grouper', label: 'Grouper', accent: '#8DC7A3', box: { x: 160, y: 920, w: 318, h: 363 } },
+  { id: 'angelfish', label: 'Angelfish', accent: '#A9B9F0', flip: true, box: { x: 674, y: 944, w: 347, h: 310 } },
 ];
 
 const SQUARE = 640;
@@ -260,6 +262,7 @@ function analyzeFish(image) {
     details.data[i + 2] = image.data[i + 2];
     details.data[i + 3] = keep ? image.data[i + 3] : 0;
   }
+
   return { details };
 }
 

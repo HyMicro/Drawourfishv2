@@ -77,6 +77,18 @@ const bCollectionCount = await pageB.locator('.fish-card').count();
 console.log('B_COLLECTION_COUNT', bCollectionCount);
 await pageB.locator('.collection-panel .sheet-header .icon-btn').click();
 
+// Remove the test fish from backend storage.
+await pageA.locator('.dock-item').filter({ hasText: 'Ikanku' }).click();
+await pageA.waitForSelector('.collection-panel');
+await pageA.waitForTimeout(400);
+const aCard = pageA.locator('.fish-card').filter({ hasText: 'Global Gupi' }).first();
+if (await aCard.count()) {
+  await aCard.locator('.glass-btn.danger').click();
+  await aCard.locator('.delete-confirm .mini-btn.danger').click();
+  await pageA.waitForTimeout(500);
+}
+await pageA.locator('.collection-panel .sheet-header .icon-btn').click();
+
 console.log('MULTI_ERRORS', JSON.stringify(errors, null, 2));
 console.log('SHOTS', outDir);
 await browser.close();

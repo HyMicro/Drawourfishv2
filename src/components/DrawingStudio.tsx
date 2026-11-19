@@ -25,13 +25,25 @@ const TOOL_SIZES = { min: 6, max: 64 };
 
 type Tool = 'brush' | 'fill' | 'eraser';
 type BrushStyle = 'marker' | 'pencil' | 'crayon' | 'airbrush';
-type BlendMode = 'source-over' | 'multiply' | 'screen' | 'overlay';
+type BlendMode =
+  | 'source-over'
+  | 'multiply'
+  | 'screen'
+  | 'overlay'
+  | 'darken'
+  | 'lighten'
+  | 'color-dodge'
+  | 'soft-light';
 
 const BLEND_MODES: Array<{ id: BlendMode; label: string }> = [
   { id: 'source-over', label: 'Normal' },
   { id: 'multiply', label: 'Multiply' },
   { id: 'screen', label: 'Screen' },
   { id: 'overlay', label: 'Overlay' },
+  { id: 'darken', label: 'Darken' },
+  { id: 'lighten', label: 'Lighten' },
+  { id: 'color-dodge', label: 'Dodge' },
+  { id: 'soft-light', label: 'Soft' },
 ];
 
 const BRUSH_STYLES: Array<{ id: BrushStyle; label: string; icon: IconName }> = [
@@ -446,94 +458,109 @@ export function DrawingStudio() {
     };
   };
 
-  const fill = useCallback((seedX: number, seedY: number, fillHex: string, free: boolean) => {
-    const ctx = paintContext();
-    if (!ctx) return false;
-    const mask = free ? null : maskDataRef.current;
-    if (!free && !mask) return false;
-    const x = Math.floor(seedX);
-    const y = Math.floor(seedY);
-    if (x < 1 || y < 1 || x >= SIZE - 1 || y >= SIZE - 1) return false;
-    if (mask && mask.data[(y * SIZE + x) * 4 + 3] < 80) return false;
+  const fill = useCallback(
+    (seedX: number, seedY: number, fillHex: string, free: boolean, blendMode: BlendMode) => {
+      const ctx = paintContext();
+      if (!ctx) return false;
+      const mask = free ? null : maskDataRef.current;
+      if (!free && !mask) return false;
+      const x = Math.floor(seedX);
+      const y = Math.floor(seedY);
+      if (x < 1 || y < 1 || x >= SIZE - 1 || y >= SIZE - 1) return false;
+      if (mask && mask.data[(y * SIZE + x) * 4 + 3] < 80) return false;
 
-    const image = ctx.getImageData(0, 0, SIZE, SIZE);
-    const data = image.data;
-    const seedIndex = (y * SIZE + x) * 4;
-    const target = [data[seedIndex], data[seedIndex + 1], data[seedIndex + 2], data[seedIndex + 3]];
-    const fillColor = hexToRgba(fillHex);
-    const tolerance = 48;
-    if (
-      Math.abs(target[0] - fillColor[0]) < 3 &&
-      Math.abs(target[1] - fillColor[1]) < 3 &&
-      Math.abs(target[2] - fillColor[2]) < 3 &&
-      Math.abs(target[3] - fillColor[3]) < 3
-    ) {
-      return false;
-    }
+      const image = ctx.getImageData(0, 0, SIZE, SIZE);
+      const data = image.data;
+      const seedIndex = (y * SIZE + x) * 4;
+      const target = [data[seedIndex], data[seedIndex + 1], data[seedIndex + 2], data[seedIndex + 3]];
+      const fillColor = hexToRgba(fillHex);
+      const tolerance = 48;
+      if (
+        Math.abs(target[0] - fillColor[0]) < 3 &&
+        Math.abs(target[1] - fillColor[1]) < 3 &&
+        Math.abs(target[2] - fillColor[2]) < 3 &&
+        Math.abs(target[3] - fillColor[3]) < 3
+      ) {
+        return false;
+      }
 
-    const matches = (index: number) => {
-      if (mask && mask.data[index + 3] < 70) return false;
-      return (
-        Math.abs(data[index] - target[0]) <= tolerance &&
-        Math.abs(data[index + 1] - target[1]) <= tolerance &&
-        Math.abs(data[index + 2] - target[2]) <= tolerance &&
-        Math.abs(data[index + 3] - target[3]) <= tolerance
-      );
-    };
+      const matches = (index: number) => {
+        if (mask && mask.data[index + 3] < 70) return false;
+        return (
+          Math.abs(data[index] - target[0]) <= tolerance &&
+          Math.abs(data[index + 1] - target[1]) <= tolerance &&
+          Math.abs(data[index + 2] - target[2]) <= tolerance &&
+          Math.abs(data[index + 3] - target[3]) <= tolerance
+        );
+      };
 
-    const stack: number[] = [y * SIZE + x];
-    const visited = new Uint8Array(SIZE * SIZE);
-    let painted = 0;
-    let touchesEdge = false;
-    while (stack.length > 0) {
-      const index = stack.pop() as number;
-      const py = (index / SIZE) | 0;
-      const px = index % SIZE;
-      if (visited[index]) continue;
-      let left = px;
-      while (left >= 0 && matches((py * SIZE + left) * 4)) left--;
-      left++;
-      let spanUp = false;
-      let spanDown = false;
-      for (let cx = left; cx < SIZE && matches((py * SIZE + cx) * 4); cx++) {
-        const pixel = py * SIZE + cx;
-        if (visited[pixel]) break;
-        visited[pixel] = 1;
-        const pi = pixel * 4;
-        data[pi] = fillColor[0];
-        data[pi + 1] = fillColor[1];
-        data[pi + 2] = fillColor[2];
-        data[pi + 3] = fillColor[3];
-        painted++;
-        if (cx === 0 || py === 0 || cx === SIZE - 1 || py === SIZE - 1) touchesEdge = true;
+      const layer = ctx.createImageData(SIZE, SIZE);
+      const layerData = layer.data;
+      const stack: number[] = [y * SIZE + x];
+      const visited = new Uint8Array(SIZE * SIZE);
+      let painted = 0;
+      let touchesEdge = false;
+      while (stack.length > 0) {
+        const index = stack.pop() as number;
+        const py = (index / SIZE) | 0;
+        const px = index % SIZE;
+        if (visited[index]) continue;
+        let left = px;
+        while (left >= 0 && matches((py * SIZE + left) * 4)) left--;
+        left++;
+        let spanUp = false;
+        let spanDown = false;
+        for (let cx = left; cx < SIZE && matches((py * SIZE + cx) * 4); cx++) {
+          const pixel = py * SIZE + cx;
+          if (visited[pixel]) break;
+          visited[pixel] = 1;
+          const pi = pixel * 4;
+          layerData[pi] = fillColor[0];
+          layerData[pi + 1] = fillColor[1];
+          layerData[pi + 2] = fillColor[2];
+          layerData[pi + 3] = fillColor[3];
+          painted++;
+          if (cx === 0 || py === 0 || cx === SIZE - 1 || py === SIZE - 1) touchesEdge = true;
 
-        if (py > 0) {
-          const up = (py - 1) * SIZE + cx;
-          const upMatch = !visited[up] && matches(up * 4);
-          if (upMatch && !spanUp) {
-            stack.push(up);
-            spanUp = true;
-          } else if (!upMatch) {
-            spanUp = false;
+          if (py > 0) {
+            const up = (py - 1) * SIZE + cx;
+            const upMatch = !visited[up] && matches(up * 4);
+            if (upMatch && !spanUp) {
+              stack.push(up);
+              spanUp = true;
+            } else if (!upMatch) {
+              spanUp = false;
+            }
           }
-        }
-        if (py < SIZE - 1) {
-          const down = (py + 1) * SIZE + cx;
-          const downMatch = !visited[down] && matches(down * 4);
-          if (downMatch && !spanDown) {
-            stack.push(down);
-            spanDown = true;
-          } else if (!downMatch) {
-            spanDown = false;
+          if (py < SIZE - 1) {
+            const down = (py + 1) * SIZE + cx;
+            const downMatch = !visited[down] && matches(down * 4);
+            if (downMatch && !spanDown) {
+              stack.push(down);
+              spanDown = true;
+            } else if (!downMatch) {
+              spanDown = false;
+            }
           }
         }
       }
-    }
-    if (painted === 0) return false;
-    if (free && touchesEdge) return false;
-    ctx.putImageData(image, 0, 0);
-    return true;
-  }, []);
+      if (painted === 0) return false;
+      if (free && touchesEdge) return false;
+
+      const layerCanvas = document.createElement('canvas');
+      layerCanvas.width = SIZE;
+      layerCanvas.height = SIZE;
+      const layerCtx = layerCanvas.getContext('2d');
+      if (!layerCtx) return false;
+      layerCtx.putImageData(layer, 0, 0);
+      ctx.save();
+      ctx.globalCompositeOperation = blendMode;
+      ctx.drawImage(layerCanvas, 0, 0);
+      ctx.restore();
+      return true;
+    },
+    [],
+  );
 
   const handlePointerDown = (event: React.PointerEvent<HTMLCanvasElement>) => {
     if (saving) return;
@@ -553,7 +580,7 @@ export function DrawingStudio() {
 
     if (tool === 'fill') {
       pushHistory();
-      if (!fill(point.x, point.y, color, isFree)) {
+      if (!fill(point.x, point.y, color, isFree, blend)) {
         historyRef.current.pop();
         setCanUndo(historyRef.current.length > 0);
       } else {

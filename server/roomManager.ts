@@ -1,4 +1,6 @@
 import { randomUUID } from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
 import type { WebSocket } from 'ws';
 import {
   FISH_TEMPLATE_IDS,
@@ -19,9 +21,101 @@ import { rooms, type Client, type Room } from './rooms';
 const EMOTES = new Set<EmoteKind>(['HEART', 'SPARKLE', 'BUBBLE', 'MUSIC']);
 const MAX_NAME = 22;
 const MAX_MESSAGES_PER_10S = 160;
+const MAX_COLLECTION_PER_OWNER = 30;
 
 const clients = new Set<Client>();
-let publicShardCounter = 0;
+
+const room: Room = {
+  info: {
+    id: 'ocean-global',
+    capacity: ROOM_CAPACITY,
+    label: 'Ocean Global',
+  },
+  clients: new Set(),
+  fishes: new Map(),
+  syncs: new Map(),
+};
+rooms.clear();
+rooms.set(room.info.id, room);
+
+const STORE_DIR = path.resolve('.data');
+const STORE_FILE = path.join(STORE_DIR, 'fish-store.json');
+const allFish = new Map<string, FishEntity>();
+const activeIds = new Set<string>();
+let saveTimer: NodeJS.Timeout | null = null;
+
+function loadStore() {
+  try {
+    const raw = fs.readFileSync(STORE_FILE, 'utf8');
+    const parsed = JSON.parse(raw) as { fishes?: FishEntity[]; activeIds?: string[] };
+    for (const fish of parsed.fishes ?? []) {
+      if (!fish || typeof fish.id !== 'string' || typeof fish.ownerId !== 'string') continue;
+      allFish.set(fish.id, fish);
+      if (parsed.activeIds?.includes(fish.id)) {
+        activeIds.add(fish.id);
+        room.fishes.set(fish.id, fish);
+        room.syncs.set(fish.id, {
+          id: fish.id,
+          x: fish.transform.x,
+          y: fish.transform.y,
+          targetX: fish.transform.targetX,
+          targetY: fish.transform.targetY,
+          state: fish.state,
+          facing: fish.transform.facing,
+        });
+      }
+    }
+  } catch {
+    // First run or unreadable file — start with an empty ocean.
+  }
+}
+
+function saveStoreNow() {
+  saveTimer = null;
+  try {
+    fs.mkdirSync(STORE_DIR, { recursive: true });
+    fs.writeFileSync(
+      STORE_FILE,
+      JSON.stringify({ fishes: [...allFish.values()], activeIds: [...activeIds] }),
+    );
+  } catch (error) {
+    console.warn('[room] fish store write failed', error);
+  }
+}
+
+function persistSoon() {
+  if (saveTimer) return;
+  saveTimer = setTimeout(saveStoreNow, 180);
+}
+
+loadStore();
+
+function ownerFish(ownerId: string): FishEntity[] {
+  return [...allFish.values()].filter((fish) => fish.ownerId === ownerId).sort((a, b) => b.createdAt - a.createdAt);
+}
+
+function deactivateFish(fish: FishEntity, broadcast = true) {
+  activeIds.delete(fish.id);
+  room.fishes.delete(fish.id);
+  room.syncs.delete(fish.id);
+  if (broadcast) sendRoom(room, { type: 'FISH_DESPAWN', fishId: fish.id });
+  persistSoon();
+}
+
+function enforceCollectionLimit(ownerId: string, keepFishId: string) {
+  const existing = allFish.get(keepFishId);
+  if (existing && existing.ownerId === ownerId) return;
+  const mine = ownerFish(ownerId);
+  if (mine.length < MAX_COLLECTION_PER_OWNER) return;
+  let remaining = mine.length;
+  for (const fish of mine) {
+    if (remaining < MAX_COLLECTION_PER_OWNER) break;
+    if (fish.id === keepFishId) continue;
+    if (activeIds.has(fish.id)) deactivateFish(fish);
+    allFish.delete(fish.id);
+    remaining -= 1;
+  }
+}
 
 function send(client: Client, message: ServerMessage) {
   if (client.socket.readyState === 1) {
@@ -29,62 +123,32 @@ function send(client: Client, message: ServerMessage) {
   }
 }
 
-function sendRoom(room: Room, message: ServerMessage, except?: Client) {
-  for (const client of room.clients) {
+function sendRoom(target: Room, message: ServerMessage, except?: Client) {
+  for (const client of target.clients) {
     if (client !== except) send(client, message);
   }
 }
 
-function makePublicRoom(): Room {
-  publicShardCounter += 1;
-  const room: Room = {
-    info: {
-      id: `ocean-${publicShardCounter}`,
-      capacity: ROOM_CAPACITY,
-      label: 'Ocean Global',
-    },
-    clients: new Set(),
-    fishes: new Map(),
-    syncs: new Map(),
-  };
-  rooms.set(room.info.id, room);
-  return room;
-}
-
-function findPublicRoom(): Room {
-  let best: Room | null = null;
-  for (const room of rooms.values()) {
-    if (room.clients.size >= MAX_CLIENTS_PER_ROOM) continue;
-    if (room.fishes.size >= ROOM_CAPACITY) continue;
-    if (!best || room.fishes.size < best.fishes.size) best = room;
-  }
-  return best ?? makePublicRoom();
-}
-
 function leaveRoom(client: Client) {
-  const room = client.room;
-  if (!room) return;
-  for (const [fishId, fish] of room.fishes) {
-    if (fish.ownerId === client.ownerId) {
-      room.fishes.delete(fishId);
-      room.syncs.delete(fishId);
-      sendRoom(room, { type: 'FISH_DESPAWN', fishId });
-    }
-  }
-  room.clients.delete(client);
+  const target = client.room;
+  if (!target) return;
+  // Fish remain in the ocean and in the server store when a player leaves.
+  target.clients.delete(client);
   client.room = null;
-  if (room.clients.size === 0 && rooms.size > 1) {
-    rooms.delete(room.info.id);
-  }
 }
 
-function enterRoom(client: Client, room: Room) {
+function enterRoom(client: Client) {
+  if (room.clients.size >= MAX_CLIENTS_PER_ROOM) {
+    send(client, { type: 'ERROR', code: 'OCEAN_FULL', message: 'Laut sedang penuh. Coba lagi sebentar.' });
+    return;
+  }
   client.room = room;
   room.clients.add(client);
   send(client, {
     type: 'ROOM_SNAPSHOT',
     room: room.info,
     fishes: [...room.fishes.values()],
+    myFishes: ownerFish(client.ownerId),
     clientId: client.id,
     onlineCount: room.clients.size,
   });
@@ -204,25 +268,30 @@ export function sanitizeFish(client: Client, input: unknown): FishEntity | strin
 }
 
 function handleSpawn(client: Client, message: Extract<ClientMessage, { type: 'FISH_SPAWN' }>) {
-  const room = client.room;
-  if (!room) return;
-  const fishId = message.fish?.id;
-  const existing = typeof fishId === 'string' ? room.fishes.get(fishId) : undefined;
-  if (existing && existing.ownerId !== client.ownerId) return;
-  if (!existing && room.fishes.size >= ROOM_CAPACITY) {
-    send(client, { type: 'ERROR', code: 'OCEAN_FULL', message: 'Akuarium penuh, ikanmu berenang lokal dulu.' });
-    return;
-  }
-  const ownCount = [...room.fishes.values()].filter((f) => f.ownerId === client.ownerId).length;
-  if (!existing && ownCount >= MAX_FISH_PER_OWNER) {
-    send(client, { type: 'ERROR', code: 'RATE_LIMIT', message: 'Maksimal 3 ikan aktif.' });
-    return;
-  }
+  if (!client.room) return;
   const fish = sanitizeFish(client, message.fish);
   if (typeof fish === 'string') {
     send(client, { type: 'ERROR', code: 'INVALID_PAYLOAD', message: fish });
     return;
   }
+  const existing = room.fishes.get(fish.id);
+  if (existing && existing.ownerId !== client.ownerId) return;
+
+  if (!existing) {
+    const ownActive = [...room.fishes.values()].filter((item) => item.ownerId === client.ownerId).length;
+    if (ownActive >= MAX_FISH_PER_OWNER) {
+      send(client, { type: 'ERROR', code: 'RATE_LIMIT', message: 'Maksimal 3 ikan aktif.' });
+      return;
+    }
+    if (room.fishes.size >= ROOM_CAPACITY) {
+      const oldest = [...room.fishes.values()].sort((a, b) => a.createdAt - b.createdAt)[0];
+      if (oldest) deactivateFish(oldest);
+    }
+  }
+
+  enforceCollectionLimit(client.ownerId, fish.id);
+  allFish.set(fish.id, fish);
+  activeIds.add(fish.id);
   room.fishes.set(fish.id, fish);
   room.syncs.set(fish.id, {
     id: fish.id,
@@ -233,7 +302,25 @@ function handleSpawn(client: Client, message: Extract<ClientMessage, { type: 'FI
     state: fish.state,
     facing: fish.transform.facing,
   });
+  persistSoon();
   sendRoom(room, { type: 'FISH_SPAWN', fish });
+}
+
+function handleDespawn(client: Client, fishId: string) {
+  if (!client.room || typeof fishId !== 'string') return;
+  const fish = room.fishes.get(fishId);
+  if (!fish || fish.ownerId !== client.ownerId) return;
+  deactivateFish(fish);
+}
+
+function handleDelete(client: Client, fishId: string) {
+  if (!client.room || typeof fishId !== 'string') return;
+  const fish = allFish.get(fishId);
+  if (fish && fish.ownerId !== client.ownerId) return;
+  if (fish && activeIds.has(fish.id)) deactivateFish(fish);
+  allFish.delete(fishId);
+  activeIds.delete(fishId);
+  persistSoon();
 }
 
 function handleSync(client: Client, message: Extract<ClientMessage, { type: 'FISH_SYNC_BATCH' }>) {
@@ -308,21 +395,18 @@ function handleMessage(client: Client, message: ClientMessage) {
     case 'HELLO': {
       if (typeof message.ownerId !== 'string' || !/^[a-zA-Z0-9-]{6,64}$/.test(message.ownerId)) return;
       client.ownerId = message.ownerId;
-      if (!client.room) enterRoom(client, findPublicRoom());
+      if (!client.room) enterRoom(client);
       break;
     }
     case 'FISH_SPAWN':
       handleSpawn(client, message);
       break;
-    case 'FISH_DESPAWN': {
-      if (!client.room || typeof message.fishId !== 'string') return;
-      const fish = client.room.fishes.get(message.fishId);
-      if (!fish || fish.ownerId !== client.ownerId) return;
-      client.room.fishes.delete(message.fishId);
-      client.room.syncs.delete(message.fishId);
-      sendRoom(client.room, { type: 'FISH_DESPAWN', fishId: message.fishId });
+    case 'FISH_DESPAWN':
+      handleDespawn(client, message.fishId);
       break;
-    }
+    case 'FISH_DELETE':
+      handleDelete(client, message.fishId);
+      break;
     case 'FISH_SYNC_BATCH':
       handleSync(client, message);
       break;
@@ -414,7 +498,8 @@ export function roomStats() {
   return {
     rooms: rooms.size,
     clients: clients.size,
-    fishes: [...rooms.values()].reduce((sum, room) => sum + room.fishes.size, 0),
+    fishes: room.fishes.size,
+    storedFishes: allFish.size,
   };
 }
 

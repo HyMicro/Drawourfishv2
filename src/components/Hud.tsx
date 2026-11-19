@@ -70,7 +70,7 @@ export function Hud() {
 
           <button type="button" className="draw-fab" onClick={openStudio} aria-label="Gambar ikan baru">
             <span className="draw-fab-icon">
-              <Icon name="plus" size={27} />
+              <Icon name="draw" size={27} />
             </span>
             <span>Gambar</span>
           </button>

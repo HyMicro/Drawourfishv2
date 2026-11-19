@@ -81,5 +81,12 @@ const fps = await page.evaluate(
 );
 await page.screenshot({ path: process.env.TEMP + '/dyf-perf.png', animations: 'disabled' });
 console.log('FISH_HUD', hudCount, 'FPS', fps, 'ERRORS', JSON.stringify(errors));
+for (const [clientIndex, ws] of clients.entries()) {
+  for (let f = 0; f < 3; f++) {
+    const i = clientIndex * 3 + f;
+    ws.send(JSON.stringify({ type: 'FISH_DELETE', fishId: `perf-fish-${String(i).padStart(4, '0')}` }));
+  }
+}
+await page.waitForTimeout(400);
 for (const ws of clients) ws.close();
 await browser.close();

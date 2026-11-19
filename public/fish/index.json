@@ -6,10 +6,10 @@
     "width": 640,
     "height": 640,
     "bytes": {
-      "shape": 7298,
-      "details": 68444,
-      "thumb": 17522,
-      "texture": 28260
+      "shape": 8404,
+      "details": 78684,
+      "thumb": 18434,
+      "texture": 29638
     }
   },
   {
@@ -19,10 +19,10 @@
     "width": 640,
     "height": 640,
     "bytes": {
-      "shape": 5578,
-      "details": 59676,
-      "thumb": 16274,
-      "texture": 26674
+      "shape": 6782,
+      "details": 66240,
+      "thumb": 17398,
+      "texture": 28258
     }
   },
   {
@@ -32,10 +32,10 @@
     "width": 640,
     "height": 640,
     "bytes": {
-      "shape": 5134,
-      "details": 56856,
-      "thumb": 13084,
-      "texture": 20418
+      "shape": 7520,
+      "details": 72182,
+      "thumb": 15852,
+      "texture": 25702
     }
   },
   {
@@ -45,10 +45,10 @@
     "width": 640,
     "height": 640,
     "bytes": {
-      "shape": 4432,
-      "details": 52674,
-      "thumb": 14108,
-      "texture": 23512
+      "shape": 6262,
+      "details": 63950,
+      "thumb": 16000,
+      "texture": 26650
     }
   },
   {
@@ -58,10 +58,10 @@
     "width": 640,
     "height": 640,
     "bytes": {
-      "shape": 5068,
-      "details": 43544,
-      "thumb": 11332,
-      "texture": 18156
+      "shape": 6182,
+      "details": 50920,
+      "thumb": 12684,
+      "texture": 20712
     }
   },
   {
@@ -71,10 +71,10 @@
     "width": 640,
     "height": 640,
     "bytes": {
-      "shape": 4880,
-      "details": 43342,
-      "thumb": 11748,
-      "texture": 19384
+      "shape": 5620,
+      "details": 47768,
+      "thumb": 12176,
+      "texture": 19874
     }
   },
   {
@@ -84,10 +84,10 @@
     "width": 640,
     "height": 640,
     "bytes": {
-      "shape": 5446,
-      "details": 48926,
-      "thumb": 12478,
-      "texture": 18526
+      "shape": 7920,
+      "details": 60894,
+      "thumb": 14278,
+      "texture": 21448
     }
   },
   {
@@ -97,10 +97,10 @@
     "width": 640,
     "height": 640,
     "bytes": {
-      "shape": 4232,
-      "details": 49152,
-      "thumb": 12114,
-      "texture": 19696
+      "shape": 6146,
+      "details": 63318,
+      "thumb": 15490,
+      "texture": 24930
     }
   },
   {
@@ -110,10 +110,10 @@
     "width": 640,
     "height": 640,
     "bytes": {
-      "shape": 5254,
-      "details": 58228,
-      "thumb": 15524,
-      "texture": 24802
+      "shape": 7340,
+      "details": 65128,
+      "thumb": 15504,
+      "texture": 25028
     }
   },
   {
@@ -123,10 +123,10 @@
     "width": 640,
     "height": 640,
     "bytes": {
-      "shape": 8662,
-      "details": 76784,
-      "thumb": 18076,
-      "texture": 29498
+      "shape": 8722,
+      "details": 77584,
+      "thumb": 17268,
+      "texture": 27654
     }
   }
 ]

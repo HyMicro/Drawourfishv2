@@ -89,6 +89,11 @@ export interface ClientFishDespawn {
   fishId: string;
 }
 
+export interface ClientFishDelete {
+  type: 'FISH_DELETE';
+  fishId: string;
+}
+
 export interface ClientFishSync {
   type: 'FISH_SYNC_BATCH';
   updates: FishSync[];
@@ -127,6 +132,7 @@ export type ClientMessage =
   | ClientHello
   | ClientFishSpawn
   | ClientFishDespawn
+  | ClientFishDelete
   | ClientFishSync
   | ClientFeedDrop
   | ClientFeedConsumed
@@ -143,6 +149,8 @@ export interface ServerRoomSnapshot {
   type: 'ROOM_SNAPSHOT';
   room: RoomInfo;
   fishes: FishEntity[];
+  /** All fish owned by this player, including inactive collection fish. */
+  myFishes: FishEntity[];
   clientId: string;
   onlineCount: number;
 }
@@ -211,6 +219,6 @@ export type ServerMessage =
   | ServerPong;
 
 export const ROOM_CAPACITY = 18;
-export const MAX_CLIENTS_PER_ROOM = 14;
+export const MAX_CLIENTS_PER_ROOM = 60;
 export const MAX_FISH_PER_OWNER = 3;
 export const MAX_TEXTURE_BYTES = 80 * 1024;

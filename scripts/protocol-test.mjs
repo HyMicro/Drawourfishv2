@@ -107,6 +107,25 @@ A.send({
 const big = await A.next((message) => message.type === 'ERROR');
 console.log('SIZE_ERROR', big.code);
 
-console.log('SERVER_ERRORS_COLLECTED', errors);
+// The ocean (and the owner's collection) must survive a disconnect/reconnect.
+const closed = new Promise((resolve) => A.ws.once('close', resolve));
 A.ws.close();
+await closed;
+await new Promise((resolve) => setTimeout(resolve, 400));
+const C = client('C');
+await C.ready;
+C.send({ type: 'HELLO', ownerId: 'owner-aaaa-1111' });
+const snapC = await C.next((message) => message.type === 'ROOM_SNAPSHOT');
+const persistedInOcean = (snapC.fishes ?? []).some((item) => item.id === fish.id);
+const persistedInCollection = (snapC.myFishes ?? []).some((item) => item.id === fish.id);
+console.log('BACKEND_PERSISTENCE', JSON.stringify({ persistedInOcean, persistedInCollection }));
+
+C.send({ type: 'FISH_DELETE', fishId: fish.id });
+const deleteDespawn = await B.next(
+  (message) => message.type === 'FISH_DESPAWN' && message.fishId === fish.id,
+).catch(() => null);
+console.log('DELETE_BROADCAST', Boolean(deleteDespawn));
+
+console.log('SERVER_ERRORS_COLLECTED', errors);
+C.ws.close();
 B.ws.close();

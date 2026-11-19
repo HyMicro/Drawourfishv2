@@ -56,7 +56,7 @@ const swState = await page.evaluate(async () => {
 });
 console.log('SW_STATE', JSON.stringify(swState, null, 2));
 
-// Reload online: fish should come back from IndexedDB.
+// Reload online: fish should come back from the backend.
 await page.reload({ waitUntil: 'networkidle' });
 await page.waitForSelector('.draw-fab');
 await page.waitForTimeout(1500);
@@ -67,6 +67,12 @@ const cards = await page.locator('.fish-card').count();
 const fishName = await page.locator('.fish-card-title strong').first().innerText().catch(() => null);
 console.log('PERSISTENCE', JSON.stringify({ cards, fishName, fishCount }));
 await page.screenshot({ path: path.join(outDir, '01-persisted.png') });
+const persistCard = page.locator('.fish-card').filter({ hasText: 'Pip Persist' }).first();
+if (await persistCard.count()) {
+  await persistCard.locator('.glass-btn.danger').click();
+  await persistCard.locator('.delete-confirm .mini-btn.danger').click();
+  await page.waitForTimeout(500);
+}
 await page.locator('.collection-panel .sheet-header .icon-btn').click();
 
 // Photo booth + download while online.

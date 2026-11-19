@@ -34,7 +34,7 @@ export default function App() {
         const store = useGameStore.getState();
         switch (message.type) {
           case 'ROOM_SNAPSHOT':
-            store.applySnapshot(message.fishes, message.clientId, message.onlineCount);
+            store.applySnapshot(message.myFishes ?? message.fishes, message.fishes, message.clientId, message.onlineCount);
             break;
           case 'FISH_SPAWN':
             store.applyRemoteSpawn(message.fish);

@@ -6,10 +6,6 @@ import { sound } from '../lib/audio';
 import {
   MAX_ACTIVE_FISH,
   ensureOwnerId,
-  loadActiveIds,
-  loadCollection,
-  persistActive,
-  persistCollection,
 } from '../lib/persistence';
 
 export interface Toast {
@@ -54,7 +50,7 @@ interface GameStore extends UIState {
   deleteFish: (fishId: string) => void;
   setConnection: (status: ConnectionStatus) => void;
   goOffline: () => void;
-  applySnapshot: (fishes: FishEntity[], clientId: string, onlineCount: number) => void;
+  applySnapshot: (myFishes: FishEntity[], fishes: FishEntity[], clientId: string, onlineCount: number) => void;
   applyRemoteSpawn: (fish: FishEntity) => void;
   applyRemoteDespawn: (fishId: string) => void;
   hideFish: (fishId: string) => void;
@@ -142,13 +138,6 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     if (bootPromise) return bootPromise;
     bootPromise = (async () => {
       const ownerId = await ensureOwnerId();
-      const [collection, storedActive] = await Promise.all([loadCollection(ownerId), loadActiveIds()]);
-      const activeIds = (storedActive.length ? storedActive : collection.slice(0, MAX_ACTIVE_FISH).map((fish) => fish.id))
-        .filter((id) => collection.some((fish) => fish.id === id))
-        .slice(0, MAX_ACTIVE_FISH);
-      if (activeIds.length === 0 && collection.length > 0) {
-        activeIds.push(...collection.slice(0, MAX_ACTIVE_FISH).map((fish) => fish.id));
-      }
 
       let onboardingOpen = false;
       try {
@@ -163,15 +152,14 @@ export const useGameStore = create<GameStore>()((set, get) => ({
 
       set({
         ownerId,
-        collection,
-        activeIds,
+        collection: [],
+        activeIds: [],
         bots,
-        liveFishes: liveForLocalReef(collection, activeIds, bots),
+        liveFishes: liveForLocalReef([], [], bots),
         muted,
         onboardingOpen,
         ready: true,
       });
-      void persistActive(activeIds);
       network.connect(ownerId);
     })();
     return bootPromise;
@@ -195,8 +183,6 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     liveFishes[fish.id] = fish;
 
     set({ collection, activeIds, liveFishes, studioOpen: false, emoteTarget: null });
-    void persistCollection(collection);
-    void persistActive(activeIds);
     network.spawnFish(fish);
     get().addToast(`${fish.name} berenang ke laut! 🫧`, 'success');
   },
@@ -210,7 +196,6 @@ export const useGameStore = create<GameStore>()((set, get) => ({
       const activeIds = state.activeIds.filter((id) => id !== fishId);
       delete liveFishes[fishId];
       set({ activeIds, liveFishes });
-      void persistActive(activeIds);
       network.despawnFish(fishId);
       get().addToast(`${fish.name} kembali ke koleksi.`);
       sound.chime('soft');
@@ -223,7 +208,6 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     const activeIds = [...state.activeIds, fishId];
     liveFishes[fishId] = fish;
     set({ activeIds, liveFishes });
-    void persistActive(activeIds);
     network.spawnFish(fish);
     sound.pop();
     get().addToast(`${fish.name} berenang lagi!`, 'success');
@@ -238,9 +222,7 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     delete liveFishes[fishId];
     const collection = state.collection.filter((item) => item.id !== fishId);
     set({ activeIds, liveFishes, collection });
-    if (state.activeIds.includes(fishId)) network.despawnFish(fishId);
-    void persistCollection(collection);
-    void persistActive(activeIds);
+    network.deleteFish(fishId);
     get().addToast(`${fish.name} dilepas dari koleksi.`);
   },
 
@@ -264,24 +246,29 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     });
   },
 
-  applySnapshot: (fishes, clientId, onlineCount) => {
+  applySnapshot: (myFishes, fishes, clientId, onlineCount) => {
     const state = get();
-    const ownFishes = state.collection.filter((fish) => state.activeIds.includes(fish.id));
-    const remote: FishEntity[] = [];
-    const seen = new Set<string>();
-    for (const fish of fishes) {
-      if (!fish || typeof fish.id !== 'string') continue;
-      if (fish.ownerId === state.ownerId) continue;
-      if (seen.has(fish.id)) continue;
-      seen.add(fish.id);
-      remote.push(fish);
+    const seenMine = new Set<string>();
+    const collection: FishEntity[] = [];
+    for (const fish of Array.isArray(myFishes) ? myFishes : []) {
+      if (!fish || typeof fish.id !== 'string' || fish.ownerId !== state.ownerId) continue;
+      if (seenMine.has(fish.id)) continue;
+      seenMine.add(fish.id);
+      collection.push(fish);
     }
+    collection.sort((a, b) => b.createdAt - a.createdAt);
+
     const liveFishes: Record<string, FishEntity> = {};
-    for (const fish of ownFishes) liveFishes[fish.id] = fish;
-    const roomForRemote = Math.max(0, 18 - ownFishes.length);
-    for (const fish of remote.slice(0, roomForRemote)) liveFishes[fish.id] = fish;
+    const activeIds: string[] = [];
+    for (const fish of Array.isArray(fishes) ? fishes : []) {
+      if (!fish || typeof fish.id !== 'string' || liveFishes[fish.id]) continue;
+      liveFishes[fish.id] = fish;
+      if (fish.ownerId === state.ownerId) activeIds.push(fish.id);
+    }
     if (realFishCount(liveFishes) < BOT_HIDE_AT) addQuietReefBots(liveFishes, state.bots);
     set({
+      collection,
+      activeIds: activeIds.slice(0, MAX_ACTIVE_FISH),
       clientId,
       onlineCount,
       connection: 'online',
@@ -289,16 +276,24 @@ export const useGameStore = create<GameStore>()((set, get) => ({
       bots: state.bots,
       hiddenIds: state.hiddenIds.filter((id) => Boolean(liveFishes[id])),
     });
-    // Re-introduce this player's active fish into the global ocean.
-    for (const fish of ownFishes) network.spawnFish(fish);
   },
 
   applyRemoteSpawn: (fish) => {
     const state = get();
     if (!fish || typeof fish.id !== 'string') return;
-    if (fish.ownerId === state.ownerId) return;
-    if (state.liveFishes[fish.id]) return;
     const liveFishes = { ...state.liveFishes };
+    if (fish.ownerId === state.ownerId) {
+      const collection = state.collection.some((item) => item.id === fish.id)
+        ? state.collection
+        : [fish, ...state.collection].slice(0, 30);
+      const activeIds = state.activeIds.includes(fish.id)
+        ? state.activeIds
+        : [...state.activeIds, fish.id].slice(0, MAX_ACTIVE_FISH);
+      liveFishes[fish.id] = fish;
+      set({ collection, activeIds, liveFishes });
+      return;
+    }
+    if (liveFishes[fish.id]) return;
     const count = realFishCount(liveFishes);
     if (count >= 18) return;
     if (count + 1 >= BOT_HIDE_AT) removeBots(liveFishes);
@@ -309,12 +304,13 @@ export const useGameStore = create<GameStore>()((set, get) => ({
 
   applyRemoteDespawn: (fishId) => {
     const state = get();
-    if (!state.liveFishes[fishId]) return;
+    if (!state.liveFishes[fishId] && !state.activeIds.includes(fishId)) return;
     const liveFishes = { ...state.liveFishes };
     delete liveFishes[fishId];
     if (realFishCount(liveFishes) <= BOT_RETURN_AT) addQuietReefBots(liveFishes, state.bots);
     set({
       liveFishes,
+      activeIds: state.activeIds.filter((id) => id !== fishId),
       hiddenIds: state.hiddenIds.filter((id) => id !== fishId),
       emoteTarget: state.emoteTarget?.fishId === fishId ? null : state.emoteTarget,
     });

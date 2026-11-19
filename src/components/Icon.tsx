@@ -2,6 +2,7 @@ import type { ReactNode, SVGProps } from 'react';
 
 export type IconName =
   | 'plus'
+  | 'draw'
   | 'fish'
   | 'camera'
   | 'users'
@@ -38,8 +39,40 @@ export type IconName =
   | 'spray'
   | 'bow';
 
+/**
+ * Hand-drawn UI icons extracted from the supplied icon sheet. Names fall back
+ * to the vector paths when no raster art exists (close, wave, lock, etc.).
+ */
+const ART: Partial<Record<IconName, string>> = {
+  plus: '/icons/tambah.webp',
+  draw: '/icons/gambar.webp',
+  fish: '/icons/goldfish.webp',
+  camera: '/icons/foto.webp',
+  feed: '/icons/pakan.webp',
+  book: '/icons/ikanku.webp',
+  volume: '/icons/suara.webp',
+  undo: '/icons/undo.webp',
+  trash: '/icons/hapus.webp',
+  brush: '/icons/kuas.webp',
+  fill: '/icons/ember.webp',
+  eraser: '/icons/penghapus.webp',
+  download: '/icons/unduh.webp',
+  back: '/icons/kembali.webp',
+  pencil: '/icons/edit.webp',
+  marker: '/icons/kuas.webp',
+  spray: '/icons/efek.webp',
+  star: '/icons/stiker.webp',
+};
+
 const PATHS: Record<IconName, ReactNode> = {
   plus: <><path d="M12 5v14" /><path d="M5 12h14" /></>,
+  draw: (
+    <>
+      <path d="M4 19h16" />
+      <path d="M5 19 7 8l10-4 2 11" />
+      <path d="M7 8h10" />
+    </>
+  ),
   fish: (
     <>
       <path d="M3 12c3.3-4.3 8.2-4.9 12.4-2.2L20 6.6l-1 5.4 1 5.4-4.6-3.2C11.2 16.9 6.3 16.3 3 12Z" />
@@ -253,7 +286,22 @@ interface IconProps extends SVGProps<SVGSVGElement> {
   size?: number;
 }
 
-export function Icon({ name, size = 24, className, ...props }: IconProps) {
+export function Icon({ name, size = 24, className, style, ...props }: IconProps) {
+  const art = ART[name];
+  if (art) {
+    return (
+      <img
+        src={art}
+        width={size}
+        height={size}
+        className={`art-icon${className ? ` ${className}` : ''}`}
+        style={{ width: size, height: size, ...style }}
+        alt=""
+        aria-hidden="true"
+        draggable={false}
+      />
+    );
+  }
   return (
     <svg
       width={size}
@@ -265,6 +313,7 @@ export function Icon({ name, size = 24, className, ...props }: IconProps) {
       strokeLinecap="round"
       strokeLinejoin="round"
       className={className}
+      style={style}
       aria-hidden="true"
       {...props}
     >
